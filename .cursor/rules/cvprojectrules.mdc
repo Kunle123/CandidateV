@@ -1,0 +1,98 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+Project Rules for Cursor AI to Build CandidateV
+Core Development Rules
+Environment-First Development
+Always develop directly in the target environments (Vercel/Railway), not locally
+Test all components in their actual deployment environment
+Use environment-specific configurations for all services
+Component Independence
+Each component must be developed and tested independently
+Components must communicate only through defined interfaces
+No direct database access between services
+Use event-based communication for cross-service operations
+Interface Compliance
+Strictly implement all interfaces exactly as specified in the documentation
+Do not modify interface contracts without updating all consumers
+Version all API endpoints appropriately
+Maintain backward compatibility for all interface changes
+Testing Requirements
+Achieve minimum 90% test coverage for all components
+Write tests before implementing features (TDD approach)
+Test each component in isolation with mocked dependencies
+Implement contract tests to verify interface compliance
+Create end-to-end tests for all user journeys
+Dependency Management
+Pin all dependencies to exact versions
+Use lockfiles (package-lock.json, poetry.lock) and commit them
+Isolate dependencies between services
+Implement connection pooling for all external resources
+Handle dependency failures gracefully
+Implementation Process Rules
+Sequential Component Development
+Follow the exact implementation sequence in the guide
+Complete one component fully before moving to the next
+Verify each component meets all requirements before proceeding
+Document completion of each component with test results
+User Journey Alignment
+Reference the user journey document for all implementations
+Ensure each component supports its relevant user journeys
+Test complete user journeys as part of component verification
+Prioritize features based on user journey importance
+Documentation Requirements
+Document all implementation decisions
+Create API documentation using OpenAPI/Swagger
+Document all configuration parameters
+Create operational runbooks for each service
+Update documentation when implementation changes
+Code Quality Standards
+Follow language-specific style guides (PEP 8 for Python, Airbnb for JavaScript)
+Use consistent naming conventions across all services
+Implement proper error handling and logging
+Write clear, self-documenting code with comments for complex logic
+Keep functions and methods small and focused
+Security Requirements
+Implement proper authentication and authorization
+Validate all user inputs
+Protect against common vulnerabilities (OWASP Top 10)
+Use environment variables for all sensitive information
+Implement rate limiting for public endpoints
+Communication Rules
+Progress Reporting
+Report completion of each component
+Document any deviations from specifications with justification
+Highlight any potential issues or risks
+Provide test results and coverage metrics
+Issue Resolution
+Document any implementation challenges
+Propose solutions with pros and cons
+Wait for approval before implementing significant changes
+Document all resolved issues and their solutions
+Integration Coordination
+Notify when a component is ready for integration
+Document integration points and requirements
+Test integrations thoroughly
+Report successful integrations
+Deployment Rules
+Vercel Deployment
+Deploy frontend to Vercel
+Configure proper build settings
+Set up environment variables
+Implement proper routing in vercel.json
+Test deployment with actual API endpoints
+Railway Deployment
+Deploy each backend service to Railway
+Set up PostgreSQL database
+Configure environment variables
+Implement health checks
+Test connectivity between services
+Continuous Integration
+Run all tests before deployment
+Verify interface compliance
+Check for security vulnerabilities
+Ensure proper environment configuration
+These rules provide a structured framework for Cursor AI to build the CandidateV application according to the specifications in the implementation guide and user journey flows document. Following these rules will ensure the application is built with proper component independence, thorough testing, and alignment with user needs.
