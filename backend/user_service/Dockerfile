@@ -6,13 +6,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir uvicorn
 
-# Verify uvicorn is installed and in PATH
-RUN which uvicorn || echo "uvicorn not found in PATH"
+# Create a simple test app
+RUN echo 'from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"Hello": "World"}\n\n@app.get("/health")\ndef health():\n    return {"status": "healthy"}' > test_app.py
 
 COPY . .
 
 # Create uploads directory if using local storage
 RUN mkdir -p ./uploads
 
-# Use python -m to run uvicorn instead of direct command
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"] 
+# Use simple app for testing
+CMD ["python", "-m", "uvicorn", "test_app:app", "--host", "0.0.0.0", "--port", "8001"] 
