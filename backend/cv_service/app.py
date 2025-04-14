@@ -8,23 +8,28 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from fastapi.security import OAuth2PasswordBearer
 
-# Environment variables
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000").split(",")
-JWT_SECRET = os.getenv("JWT_SECRET", "development_secret_key")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8001")
-
 # Create FastAPI app
 app = FastAPI(title="CandidateV CV Service")
 
+# Try to import optional dependencies, gracefully handle missing ones
+try:
+    import jwt
+except ImportError:
+    print("WARNING: PyJWT not installed, authentication features will be limited")
+    jwt = None
+
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+try:
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000").split(",")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+except ImportError:
+    print("WARNING: CORS middleware not available")
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
@@ -281,12 +286,29 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
+    """Health check endpoint for deployment verification"""
+    import sys
+    import platform
+    
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0",
-        "database_connection": "ok",
-        "user_service_connection": "ok"
+        "environment": {
+            "python_version": sys.version,
+            "platform": platform.platform(),
+            "jwt_available": jwt is not None,
+            "cwd": os.getcwd(),
+            "files": os.listdir(".")[:10],  # First 10 files
+        }
+    }
+
+@app.get("/api/cv/test")
+async def test():
+    """Test endpoint to check if CV service is working"""
+    return {
+        "message": "CV Service is responding",
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 @app.get("/api/cv/templates", response_model=List[CVTemplate])

@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install only the bare minimum
-RUN pip install fastapi==0.109.0 uvicorn==0.26.0
+RUN pip install fastapi==0.109.0 uvicorn==0.26.0 PyJWT==2.7.0
 
 # Copy only the health check file
 COPY ./healthcheck.py .
