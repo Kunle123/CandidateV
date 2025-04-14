@@ -15,5 +15,11 @@ RUN pip install --no-cache-dir fastapi-limiter==0.1.5 aioredis==2.0.1 python-dot
 # Copy app.py
 COPY ./app.py .
 
-# Use app.py for the FastAPI application
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"] 
+# Make sure the file is accessible
+RUN ls -la
+
+# Set Python path (ensures imports work correctly)
+ENV PYTHONPATH=/app
+
+# Use app.py for the FastAPI application (explicit file path)
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"] 
