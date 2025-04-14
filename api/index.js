@@ -32,7 +32,7 @@ if (isVercel) {
 } else {
   // Full logging for other environments
   logger = winston.createLogger({
-    level: 'info',
+    level: process.env.LOG_LEVEL || 'info',
     format: winston.format.combine(
       winston.format.timestamp(),
       winston.format.json()
@@ -92,6 +92,13 @@ const serviceStatus = {
   payment: { available: false, lastChecked: null }
 };
 
+// Forward auth header to backend services
+const addAuthHeader = (proxyReq, req) => {
+  if (req.headers.authorization) {
+    proxyReq.setHeader('Authorization', req.headers.authorization);
+  }
+};
+
 // Proxy configuration with error handling
 const createServiceProxy = (servicePath, targetUrl, serviceName) => {
   return createProxyMiddleware({
@@ -103,6 +110,9 @@ const createServiceProxy = (servicePath, targetUrl, serviceName) => {
     onProxyReq: (proxyReq, req) => {
       // Add request ID to the proxied request
       proxyReq.setHeader('X-Request-ID', req.id);
+      
+      // Forward authentication header
+      addAuthHeader(proxyReq, req);
       
       // Update service status on successful proxy request
       serviceStatus[serviceName].available = true;
@@ -117,6 +127,14 @@ const createServiceProxy = (servicePath, targetUrl, serviceName) => {
         serviceStatus[serviceName].available = false;
         serviceStatus[serviceName].lastChecked = new Date();
         serviceStatus[serviceName].lastError = `HTTP ${proxyRes.statusCode}`;
+        
+        logger.error({
+          message: 'Service returned error status',
+          serviceName,
+          statusCode: proxyRes.statusCode,
+          path: req.path,
+          requestId: req.id
+        });
       }
     },
     onError: (err, req, res) => {
@@ -150,11 +168,27 @@ const createServiceProxy = (servicePath, targetUrl, serviceName) => {
 app.use('/api/auth', createServiceProxy('/auth', AUTH_SERVICE_URL, 'auth'));
 app.use('/api/users', createServiceProxy('/users', USER_SERVICE_URL, 'user'));
 
-// Only add services if URLs are provided
+// Only add CV service if URL is provided
 if (CV_SERVICE_URL && CV_SERVICE_URL !== 'http://localhost:8002') {
   app.use('/api/cv', createServiceProxy('/cv', CV_SERVICE_URL, 'cv'));
+} else {
+  // Add CV service stub for testing
+  app.all('/api/cv/*', (req, res) => {
+    logger.warn({
+      message: 'CV service not configured',
+      path: req.path,
+      requestId: req.id
+    });
+    res.status(503).json({
+      status: 'error',
+      message: 'CV service is not configured yet',
+      requestId: req.id,
+      timestamp: new Date().toISOString()
+    });
+  });
 }
 
+// Add other services if URLs are provided
 if (EXPORT_SERVICE_URL && EXPORT_SERVICE_URL !== 'http://localhost:8003') {
   app.use('/api/export', createServiceProxy('/export', EXPORT_SERVICE_URL, 'export'));
 }
@@ -230,7 +264,8 @@ app.get('/api/debug', (req, res) => {
   res.status(200).json({
     environment: {
       isVercel: isVercel,
-      nodeEnv: process.env.NODE_ENV
+      nodeEnv: process.env.NODE_ENV,
+      logLevel: process.env.LOG_LEVEL || 'info'
     },
     serviceUrls: {
       auth: AUTH_SERVICE_URL,
