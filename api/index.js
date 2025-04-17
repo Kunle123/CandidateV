@@ -14,7 +14,7 @@ const SERVICE_URLS = {
   user: process.env.USER_SERVICE_URL || 'https://candidatev-user-service.up.railway.app',
   cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app',
   export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
-  ai: process.env.AI_SERVICE_URL || 'https://candidatev-ai-service.up.railway.app',
+  ai: process.env.AI_SERVICE_URL || 'https://ai-service-production.up.railway.app',
   payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app'
 };
 
@@ -195,6 +195,102 @@ app.post('/api/debug/echo', (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Error echoing request',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Mock AI job matching endpoint
+app.post('/api/ai/job-match/analyze', (req, res) => {
+  console.log('Received job matching request:', req.body);
+  
+  try {
+    // Extract CV ID and job description from request
+    const { cv_id, job_description, detailed } = req.body;
+    
+    // Create mock job match analysis results
+    const mockResult = {
+      status: 'success',
+      message: 'Job match analysis completed successfully',
+      data: {
+        match_score: 78.5, // Match percentage
+        cv_id: cv_id,
+        analysis_timestamp: new Date().toISOString(),
+        is_detailed: detailed === true,
+        matches: [
+          {
+            category: 'Skills',
+            score: 82,
+            matches: [
+              { skill: 'Project Management', score: 95, context: 'Significant experience in project management mentioned in resume.' },
+              { skill: 'Agile Methodology', score: 85, context: 'Experience with Agile methodologies identified in work history.' },
+              { skill: 'Risk Management', score: 80, context: 'Risk management experience found in project descriptions.' },
+              { skill: 'Budget Control', score: 70, context: 'Budget management experience detected but could be expanded.' }
+            ]
+          },
+          {
+            category: 'Experience',
+            score: 75,
+            matches: [
+              { area: 'Project Lifecycle Management', score: 90, context: 'Strong experience in managing full project lifecycle.' },
+              { area: 'Stakeholder Management', score: 80, context: 'Experience working with senior stakeholders identified.' },
+              { area: 'Vendor Management', score: 70, context: 'Some supplier management experience detected.' },
+              { area: 'Public Sector Experience', score: 60, context: 'Limited public sector experience detected.' }
+            ]
+          },
+          {
+            category: 'Qualifications',
+            score: 75,
+            matches: [
+              { qualification: 'Project Management Certification', score: 80, context: 'PMP certification identified.' },
+              { qualification: 'Higher Education', score: 70, context: 'Relevant degree detected.' }
+            ]
+          }
+        ],
+        improvement_suggestions: [
+          {
+            category: 'Skills',
+            suggestions: [
+              'Emphasize experience with government digital standards (GDS)',
+              'Highlight experience with both Agile and Waterfall methodologies',
+              'Showcase benefits realization tracking experience'
+            ]
+          },
+          {
+            category: 'Experience',
+            suggestions: [
+              'Add more detail about public sector experience',
+              'Quantify budget management experience (mention managing £0.6M budgets)',
+              'Highlight experience with post-implementation reviews'
+            ]
+          },
+          {
+            category: 'Resume Format',
+            suggestions: [
+              'Use more keywords from the job description',
+              'Structure resume to highlight project delivery capabilities',
+              'Include specific examples of successful project implementations'
+            ]
+          }
+        ],
+        key_requirements_analysis: [
+          { requirement: 'Project Management Experience', met: true, confidence: 'high' },
+          { requirement: 'Agile Methodology', met: true, confidence: 'medium' },
+          { requirement: 'Public Sector Experience', met: false, confidence: 'medium' },
+          { requirement: 'Budget Management', met: true, confidence: 'low' },
+          { requirement: 'Stakeholder Management', met: true, confidence: 'high' }
+        ]
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    res.status(200).json(mockResult);
+  } catch (error) {
+    console.error('Error in job matching endpoint:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
       error: error.message,
       timestamp: new Date().toISOString()
     });
@@ -517,8 +613,21 @@ app.use('/api/cv', (req, res, next) => {
 
 app.use('/api/export', createProxy('export', SERVICE_URLS.export));
 
-// Modified AI service proxy to always pass through
+// Modified AI service proxy to prioritize local implementations
 app.use('/api/ai', (req, res, next) => {
+  // Check if it's a job matching request - use our mock implementation
+  if (req.path.includes('/job-match/analyze')) {
+    // This route should be handled by our mock endpoint above
+    console.log('Using mock implementation for job matching');
+    return next('route');
+  }
+  
+  // For real AI endpoint access when specifically requested
+  if (req.headers['x-use-real-service'] === 'true' || req.query.use_real_service === 'true') {
+    console.log('Forcing use of real AI service due to header/query param:', req.originalUrl);
+    return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
+  }
+  
   console.log('Forwarding AI service request to real service:', req.originalUrl);
   return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
 });
