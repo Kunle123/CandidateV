@@ -34,6 +34,7 @@ app.use(helmet({
 }));
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
 // Add CORS headers to all responses
@@ -93,11 +94,35 @@ app.post('/api/auth/login', (req, res) => {
   console.log('Headers:', JSON.stringify(req.headers));
   
   try {
-    // Debug received data
+    // OAuth style form data handling
+    let email = req.body.email;
+    let password = req.body.password;
+    
+    // Handle OAuth2PasswordRequestForm format (username instead of email)
+    if (!email && req.body.username) {
+      email = req.body.username;
+      console.log('Using username field as email:', email);
+    }
+    
+    // Handle URL-encoded form data
+    if (!email && req.body.toString().includes('username=')) {
+      try {
+        const formData = new URLSearchParams(req.body.toString());
+        email = formData.get('username');
+        password = formData.get('password');
+        console.log('Parsed form data:', { email, password: '********' });
+      } catch (e) {
+        console.error('Failed to parse URL-encoded form data:', e);
+      }
+    }
+    
+    // For string body
     if (typeof req.body === 'string') {
       try {
         req.body = JSON.parse(req.body);
         console.log('Parsed string body:', JSON.stringify(req.body));
+        email = req.body.email || req.body.username;
+        password = req.body.password;
       } catch (e) {
         console.error('Failed to parse string body:', e);
       }
@@ -110,31 +135,34 @@ app.post('/api/auth/login', (req, res) => {
         console.log('Found data field:', JSON.stringify(parsedData));
         
         // Use the parsed data
-        if (parsedData.email) req.body.email = parsedData.email;
-        if (parsedData.password) req.body.password = parsedData.password;
+        if (parsedData.email) email = parsedData.email;
+        if (parsedData.username) email = parsedData.username;
+        if (parsedData.password) password = parsedData.password;
       } catch (e) {
         console.error('Failed to parse data field:', e);
       }
     }
     
     // Check if required fields are present
-    if (!req.body.email || !req.body.password) {
+    if (!email || !password) {
       console.error('Missing required fields. Body:', JSON.stringify(req.body));
       return res.status(400).json({
         status: 'error',
-        message: 'Email and password are required',
+        message: 'Email/username and password are required',
         timestamp: new Date().toISOString()
       });
     }
     
-    // Mock successful login
+    // Mock successful login - return in FastAPI/OAuth format
     res.status(200).json({
       status: 'success',
       message: 'Login successful',
-      token: `mock-jwt-token-${Date.now()}`,
+      access_token: `mock-jwt-token-${Date.now()}`,
+      refresh_token: `mock-refresh-token-${Date.now()}`,
+      token_type: 'bearer',
       user: {
         id: `user-${Date.now()}`,
-        email: req.body.email,
+        email: email,
         created_at: new Date().toISOString()
       },
       timestamp: new Date().toISOString()
