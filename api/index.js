@@ -116,11 +116,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add or update CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
+
 // Middleware
 app.use(helmet());
-app.use(cors());
 app.use(express.json());
-  app.use(morgan('combined'));
+app.use(morgan('combined'));
 
 // Service status tracking
 const serviceStatus = {
@@ -321,8 +331,8 @@ async function startServer() {
     );
     
     // Start server
-  app.listen(PORT, () => {
-    logger.info(`API Gateway listening on port ${PORT}`);
+    app.listen(PORT, () => {
+      logger.info(`API Gateway listening on port ${PORT}`);
       console.log(`API Gateway running on http://localhost:${PORT}`);
       
       // Log all service URLs
