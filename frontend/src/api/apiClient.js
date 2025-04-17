@@ -75,19 +75,22 @@ const logError = (error) => {
 
 // Create a base URL strategy based on environment
 const getBaseUrl = () => {
-  // Development mode - use explicit base URL for local development
-  if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
-    return 'http://localhost:8000';  // Point to the API gateway
-  }
-  
-  // Production - check for environment variables
-  const envApiUrl = process.env.REACT_APP_API_URL || import.meta.env.VITE_API_URL;
+  // First check for environment variables (highest priority)
+  const envApiUrl = import.meta.env.VITE_API_BASE_URL;
   if (envApiUrl) {
+    console.log('🔧 Using API URL from environment:', envApiUrl);
     return envApiUrl;
   }
   
-  // Default fallback
-  return 'http://localhost:8000';  // Default to API gateway if nothing else works
+  // Development mode fallback
+  if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
+    console.log('🔧 Using local development API URL');
+    return 'http://localhost:8000';
+  }
+  
+  // Last resort fallback for production
+  console.log('🔧 Using default production API URL');
+  return 'https://api-gateway-production.up.railway.app';
 };
 
 // Get the correct base URL based on environment
@@ -115,10 +118,9 @@ const apiClient = axios.create({
 if (config.features.requestInterceptors) {
   apiClient.interceptors.request.use(
     (request) => {
-      // Validate request URL - ensure it starts with /api/ if using relative URLs
-      if (!API_BASE_URL && request.url && !request.url.startsWith('/api/')) {
-        console.warn(`⚠️ API request to ${request.url} doesn't start with /api/ - this may cause errors`);
-        // Auto-fix by prepending /api/ if missing
+      // Ensure API paths are correctly formatted for Railway API Gateway
+      if (request.url && !request.url.startsWith('/api/') && !request.url.startsWith('http')) {
+        console.log(`🔄 Adding /api prefix to request path: ${request.url}`);
         request.url = `/api/${request.url}`;
       }
       
