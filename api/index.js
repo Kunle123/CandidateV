@@ -20,7 +20,7 @@ const SERVICE_URLS = {
 
 // CORS configuration
 const corsOptions = {
-  origin: ['https://candidate-v.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+  origin: ['https://candidate-v.vercel.app', 'http://localhost:3000', 'http://localhost:5173', '*'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
@@ -39,10 +39,18 @@ app.use(morgan('combined'));
 
 // Add CORS headers to all responses
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://candidate-v.vercel.app');
+  // Allow requests from any origin in development
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
+  
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -524,20 +532,40 @@ const createProxy = (serviceName, targetUrl) => {
     onProxyReq: (proxyReq, req, res) => {
       // Log proxy requests for debugging
       console.log(`Proxying ${req.method} request to ${serviceName}: ${req.path}`);
+      
+      // Add debugging headers
+      proxyReq.setHeader('X-Proxy-Service', serviceName);
+      proxyReq.setHeader('X-Proxy-Target', targetUrl);
+      proxyReq.setHeader('X-Original-URL', req.originalUrl);
     },
     pathRewrite: (path, req) => {
       // For OPTIONS requests, return null to prevent proxying
       if (req.method === 'OPTIONS') {
         return null;
       }
+      // Log the path rewrite for debugging
+      console.log(`Path rewrite: ${path} -> ${path}`);
       return path;
     },
     onError: (err, req, res) => {
-      console.error(`Proxy error for ${serviceName}: ${err.message}`);
+      console.error(`Proxy error for ${serviceName}: ${err.message}`, {
+        service: serviceName,
+        targetUrl,
+        originalUrl: req.originalUrl,
+        path: req.path,
+        method: req.method,
+        error: err.message
+      });
       
       // For OPTIONS requests, handle directly
       if (req.method === 'OPTIONS') {
-        res.header('Access-Control-Allow-Origin', 'https://candidate-v.vercel.app');
+        // Allow requests from any origin in development
+        const origin = req.headers.origin;
+        if (origin) {
+          res.header('Access-Control-Allow-Origin', origin);
+        } else {
+          res.header('Access-Control-Allow-Origin', '*');
+        }
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
         res.header('Access-Control-Allow-Credentials', 'true');
@@ -546,10 +574,24 @@ const createProxy = (serviceName, targetUrl) => {
         return;
       }
       
+      // Set proper CORS headers in error response
+      const origin = req.headers.origin;
+      if (origin) {
+        res.header('Access-Control-Allow-Origin', origin);
+      } else {
+        res.header('Access-Control-Allow-Origin', '*');
+      }
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      
       res.status(503).json({
         status: 'error',
         message: `${serviceName} service temporarily unavailable`,
         error: err.message,
+        originalUrl: req.originalUrl,
+        path: req.path,
+        method: req.method,
         timestamp: new Date().toISOString()
       });
     }
@@ -617,8 +659,14 @@ app.use('/api/export', createProxy('export', SERVICE_URLS.export));
 app.use('/api/ai', (req, res, next) => {
   // Check if it's a job matching request - use our mock implementation
   if (req.path.includes('/job-match/analyze')) {
-    // This route should be handled by our mock endpoint above
-    console.log('Using mock implementation for job matching');
+    console.log('Using mock implementation for job matching:', req.method, req.originalUrl);
+    // For GET requests or if this path doesn't exactly match our mock implementation
+    if (req.method !== 'POST') {
+      console.log('Non-POST request for job matching, forwarding to real service');
+      return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
+    }
+    
+    // This will be caught by our mock endpoint handler defined earlier
     return next('route');
   }
   
@@ -636,10 +684,38 @@ app.use('/api/payments', createProxy('payment', SERVICE_URLS.payment));
 
 // Default 404 handler
 app.use((req, res) => {
+  console.log(`404 Not Found: ${req.method} ${req.originalUrl}`, {
+    headers: req.headers,
+    query: req.query,
+    body: req.body
+  });
+  
+  // Set proper CORS headers
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   res.status(404).json({
     status: 'error',
     message: 'Route not found',
-    path: req.originalUrl
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    available_routes: [
+      '/api/health',
+      '/api/auth/register',
+      '/api/auth/login',
+      '/api/cv',
+      '/api/cv/:id',
+      '/api/ai/job-match/analyze',
+      '/api/debug/echo'
+    ]
   });
 });
 
