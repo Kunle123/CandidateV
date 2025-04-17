@@ -1,0 +1,35 @@
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfile": "Dockerfile.simple"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 10,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5,
+    "headers": [
+      {
+        "key": "Access-Control-Allow-Origin",
+        "value": "https://candidate-v.vercel.app"
+      },
+      {
+        "key": "Access-Control-Allow-Methods",
+        "value": "GET, POST, PUT, DELETE, OPTIONS"
+      },
+      {
+        "key": "Access-Control-Allow-Headers",
+        "value": "Content-Type, Authorization, X-Requested-With"
+      },
+      {
+        "key": "Access-Control-Allow-Credentials",
+        "value": "true"
+      },
+      {
+        "key": "Access-Control-Max-Age",
+        "value": "86400"
+      }
+    ]
+  }
+} 
