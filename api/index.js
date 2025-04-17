@@ -39,7 +39,7 @@ async function checkServiceHealth(name, url) {
   try {
     const startTime = Date.now();
     const response = await axios.get(`${url}/health`, { 
-      timeout: 2000,
+      timeout: 10000,  // Increase timeout from 2000ms to 10 seconds
       validateStatus: status => status < 500 // Accept any non-500 status
     });
     const responseTime = Date.now() - startTime;
@@ -52,6 +52,7 @@ async function checkServiceHealth(name, url) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
+    console.log(`Health check failed for ${name} service: ${error.message}`);
     return {
       available: false,
       status: error.response?.status || 0,
@@ -120,7 +121,7 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: process.env.CORS_ORIGINS ? 
     process.env.CORS_ORIGINS.split(',') : 
-    ['https://candidate-v.vercel.app', 'https://candidate-6nohbuue6-kunle-ibiduns-projects.vercel.app', 'http://localhost:5173'],
+    ['https://candidate-v.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
@@ -143,28 +144,37 @@ const serviceStatus = {
   payment: { available: false, lastChecked: null }
 };
 
+// Update the Health Check Interval
+const HEALTH_CHECK_INTERVAL = process.env.HEALTH_CHECK_INTERVAL || 60000; // Default 60 seconds (up from 15)
+
 // Periodic health checks for all services
 function startHealthChecks() {
-  const checkInterval = process.env.HEALTH_CHECK_INTERVAL || 15000; // Default 15 seconds
+  logger.info(`Started health checks with interval: ${HEALTH_CHECK_INTERVAL}ms`);
   
   setInterval(async () => {
     // Check all services in parallel
     const checks = Object.entries(SERVICE_URLS).map(async ([service, url]) => {
-      const health = await checkServiceHealth(service, url);
-      serviceStatus[service] = {
-        ...health,
-        lastChecked: new Date()
-      };
-      
-      if (!health.available) {
-        logger.warn(`Service ${service} health check failed: ${health.error || 'Unknown error'}`);
+      try {
+        const health = await checkServiceHealth(service, url);
+        serviceStatus[service] = {
+          ...health,
+          lastChecked: new Date()
+        };
+        
+        if (!health.available) {
+          logger.warn(`Service ${service} health check failed: ${health.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        logger.error(`Failed to check health of ${service}: ${error.message}`);
       }
     });
     
-    await Promise.all(checks);
-  }, checkInterval);
-  
-  logger.info(`Started health checks with interval: ${checkInterval}ms`);
+    try {
+      await Promise.all(checks);
+    } catch (error) {
+      logger.error(`Health check batch failed: ${error.message}`);
+    }
+  }, HEALTH_CHECK_INTERVAL);
 }
 
 // Service status endpoint for monitoring
@@ -253,6 +263,19 @@ const createServiceProxy = (serviceName, targetUrl) => {
       serviceStatus[serviceName].lastError = err.message;
       logger.error(`${serviceName} service unavailable: ${err.message} for ${req.originalUrl}`);
       
+      // Special handling for auth service
+      if (serviceName === 'auth' && req.path.includes('/register')) {
+        // For registration, return a special message
+        return res.status(503).json({
+          status: 'error',
+          message: 'Authentication service temporarily unavailable',
+          code: 'SERVICE_UNAVAILABLE',
+          requestId: req.id,
+          error: 'Please try again later or contact support',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       // Provide a more helpful error message to the client
       const errorResponse = {
         status: 'error',
@@ -332,8 +355,8 @@ async function startServer() {
     );
     
     // Start server
-  app.listen(PORT, () => {
-    logger.info(`API Gateway listening on port ${PORT}`);
+    app.listen(PORT, () => {
+      logger.info(`API Gateway listening on port ${PORT}`);
       console.log(`API Gateway running on http://localhost:${PORT}`);
       
       // Log all service URLs
