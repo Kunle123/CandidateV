@@ -116,11 +116,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// Configure CORS to allow requests from the Vercel domain
+const corsOptions = {
+  origin: process.env.CORS_ORIGINS ? 
+    process.env.CORS_ORIGINS.split(',') : 
+    ['https://candidate-6nohbuue6-kunle-ibiduns-projects.vercel.app', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+};
+
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions)); // Use the configured CORS options
 app.use(express.json());
-  app.use(morgan('combined'));
+app.use(morgan('combined'));
 
 // Service status tracking
 const serviceStatus = {
