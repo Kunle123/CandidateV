@@ -41,6 +41,7 @@ yarn-error.log
 venv/
 env/
 ENV/
+backend_env/
 
 # IDE / editors
 .idea/
@@ -69,4 +70,20 @@ logs/
 htmlcov/
 
 # Local development
-docker-compose.override.yml 
+docker-compose.override.yml
+
+# Scripts potentially containing API keys
+complete_ai_service.ps1
+run_ai_service.ps1
+deploy.sh
+start_ai.bat
+start_ai_service.ps1
+
+# Local databases
+*.db
+
+# Deployment and environment files that might contain secrets
+*.pem
+*.key
+railway.json
+vercel.json 
