@@ -37,7 +37,7 @@ import {
   Stack,
 } from '@chakra-ui/react';
 import { FaMagic, FaFileAlt, FaKeyboard, FaCopy, FaDownload, FaLightbulb } from 'react-icons/fa';
-import axios from 'axios';
+import { apiService } from '../../api';
 
 const JobOptimizationPanel = ({ cvId, cvData }) => {
   const [jobDescription, setJobDescription] = useState('');
@@ -116,8 +116,8 @@ const JobOptimizationPanel = ({ cvId, cvData }) => {
         });
       }
       
-      // Call the AI service to optimize the CV
-      const response = await axios.post('/api/ai/optimize', {
+      // Call the AI service to optimize the CV - Use apiService instead of axios
+      const response = await apiService.post('/ai/optimize', {
         cv_id: cvId,
         targets: targets,
         job_description: jobDescription,
@@ -166,8 +166,8 @@ const JobOptimizationPanel = ({ cvId, cvData }) => {
       setIsGeneratingCoverLetter(true);
       setError(null);
 
-      // Call the AI service to generate the cover letter
-      const response = await axios.post('/api/ai/cover-letter', {
+      // Call the AI service to generate the cover letter - Use apiService instead of axios
+      const response = await apiService.post('/ai/cover-letter', {
         cv_id: cvId,
         job_description: jobDescription,
         user_comments: userComments,
