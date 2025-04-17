@@ -23,13 +23,14 @@ app = FastAPI(
 )
 
 # Configure CORS
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "https://candidate-v.vercel.app,http://localhost:3000,http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"]
 )
 
 # Add request ID and logging middleware
@@ -71,3 +72,14 @@ async def root():
 async def root_health_check():
     """Root-level health check endpoint for container health checks"""
     return {"status": "healthy"} 
+
+# Add direct CORS test endpoint
+@app.get("/api/cors-test")
+async def cors_test():
+    """Test endpoint to verify CORS is working properly."""
+    return {
+        "status": "success",
+        "message": "CORS test successful",
+        "service": "auth",
+        "cors_origins": cors_origins
+    }
