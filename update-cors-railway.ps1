@@ -3,7 +3,7 @@
 # This script only updates the API Gateway CORS settings and does not change any frontend configuration
 
 # List of allowed origins (include your Vercel domain)
-$CORS_ORIGINS = "https://candidate-6nohbuue6-kunle-ibiduns-projects.vercel.app,http://localhost:5173"
+$CORS_ORIGINS = "https://candidate-v.vercel.app,https://candidate-6nohbuue6-kunle-ibiduns-projects.vercel.app,http://localhost:5173"
 
 # Manual Instructions
 Write-Host "To update your Railway API Gateway CORS settings:"

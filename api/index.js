@@ -120,7 +120,7 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: process.env.CORS_ORIGINS ? 
     process.env.CORS_ORIGINS.split(',') : 
-    ['https://candidate-6nohbuue6-kunle-ibiduns-projects.vercel.app', 'http://localhost:5173'],
+    ['https://candidate-v.vercel.app', 'https://candidate-6nohbuue6-kunle-ibiduns-projects.vercel.app', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
