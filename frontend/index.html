@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CandidateV - AI-Powered CV Builder</title>
     <meta name="description" content="Create, optimize, and manage professional CVs/resumes with AI assistance" />
+    <script>
+      // Redirect if someone visits the root API path directly
+      if (window.location.pathname === '/api' || window.location.pathname === '/api/') {
+        window.location.href = '/';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
