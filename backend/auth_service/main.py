@@ -70,6 +70,13 @@ async def get_openapi_schema():
     return app.openapi_schema
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "8000"))
+    # Handle the PORT environment variable correctly
+    port_str = os.getenv("PORT", "8000")
+    try:
+        port = int(port_str)
+    except ValueError:
+        logger.error(f"Invalid PORT environment variable value: '{port_str}', defaulting to 8000")
+        port = 8000
+    
     logger.info(f"Starting Authentication Service on port {port}")
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True) 
