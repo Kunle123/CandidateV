@@ -25,8 +25,7 @@ CandidateV (pronounced "Candidate 5") is a modern web application that helps use
 ## Project Structure
 
 - `/frontend`: React/Vite application for the user interface
-  - **Important**: The actual frontend codebase is in `/frontend/frontend/src` - this nested structure must be maintained
-  - All dependencies should be installed within the inner `/frontend/frontend` directory
+  - Contains the React application source code in `/frontend/src`
 - `/backend`: Backend microservices
   - `/api_gateway`: API Gateway for routing requests to services
   - `/auth_service`: Authentication and user management
@@ -36,6 +35,7 @@ CandidateV (pronounced "Candidate 5") is a modern web application that helps use
   - `/ai_service`: AI optimization, job matching, and cover letter generation
   - `/payment_service`: Subscription and payment processing with Stripe
 - `/infra`: Infrastructure setup and deployment pipelines
+- `/api`: Legacy API implementation (no longer used in production)
 
 ## Getting Started
 
