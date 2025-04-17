@@ -88,29 +88,89 @@ app.post('/api/auth/register', (req, res) => {
 
 // Mock auth login endpoint
 app.post('/api/auth/login', (req, res) => {
-  console.log('Received login request:', req.body);
+  console.log('Received login request:');
+  console.log('Body:', JSON.stringify(req.body));
+  console.log('Headers:', JSON.stringify(req.headers));
   
-  // Check if required fields are present
-  if (!req.body.email || !req.body.password) {
-    return res.status(400).json({
+  try {
+    // Debug received data
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+        console.log('Parsed string body:', JSON.stringify(req.body));
+      } catch (e) {
+        console.error('Failed to parse string body:', e);
+      }
+    }
+    
+    // For form data or URL encoded
+    if (req.body && req.body.data) {
+      try {
+        const parsedData = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
+        console.log('Found data field:', JSON.stringify(parsedData));
+        
+        // Use the parsed data
+        if (parsedData.email) req.body.email = parsedData.email;
+        if (parsedData.password) req.body.password = parsedData.password;
+      } catch (e) {
+        console.error('Failed to parse data field:', e);
+      }
+    }
+    
+    // Check if required fields are present
+    if (!req.body.email || !req.body.password) {
+      console.error('Missing required fields. Body:', JSON.stringify(req.body));
+      return res.status(400).json({
+        status: 'error',
+        message: 'Email and password are required',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Mock successful login
+    res.status(200).json({
+      status: 'success',
+      message: 'Login successful',
+      token: `mock-jwt-token-${Date.now()}`,
+      user: {
+        id: `user-${Date.now()}`,
+        email: req.body.email,
+        created_at: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error in login endpoint:', error);
+    res.status(500).json({
       status: 'error',
-      message: 'Email and password are required',
+      message: 'Internal server error',
+      error: error.message,
       timestamp: new Date().toISOString()
     });
   }
-  
-  // Mock successful login
-  res.status(200).json({
-    status: 'success',
-    message: 'Login successful',
-    token: `mock-jwt-token-${Date.now()}`,
-    user: {
-      id: `user-${Date.now()}`,
-      email: req.body.email,
-      created_at: new Date().toISOString()
-    },
-    timestamp: new Date().toISOString()
-  });
+});
+
+// Debug endpoint to see request structure
+app.post('/api/debug/echo', (req, res) => {
+  try {
+    res.status(200).json({
+      status: 'success',
+      message: 'Request echoed',
+      body: req.body,
+      headers: req.headers,
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Error echoing request',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // CORS test endpoint
