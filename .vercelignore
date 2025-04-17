@@ -4,3 +4,5 @@ infra/
 scripts/
 node_modules/
 venv/
+*
+!frontend/ 
