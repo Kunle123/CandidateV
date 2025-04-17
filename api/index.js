@@ -20,7 +20,7 @@ const SERVICE_URLS = {
 
 // CORS configuration
 const corsOptions = {
-  origin: 'https://candidate-v.vercel.app',
+  origin: ['https://candidate-v.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
@@ -28,26 +28,24 @@ const corsOptions = {
 };
 
 // Apply essential middleware
-app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(helmet({ 
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false
+}));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan('combined'));
 
-// Explicitly handle OPTIONS requests
-app.options('*', (req, res) => {
-  console.log(`Handling OPTIONS request for ${req.path}`);
-  res.status(200).end();
-});
-
-// Direct handler for auth registration
-app.options('/api/auth/register', (req, res) => {
-  console.log('Handling OPTIONS request for /api/auth/register');
+// Add CORS headers to all responses
+app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', 'https://candidate-v.vercel.app');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  res.status(200).end();
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
 });
 
 // Health check endpoint
@@ -78,6 +76,10 @@ const createProxy = (serviceName, targetUrl) => {
     target: targetUrl,
     changeOrigin: true,
     timeout: 30000,
+    onProxyReq: (proxyReq, req, res) => {
+      // Log proxy requests for debugging
+      console.log(`Proxying ${req.method} request to ${serviceName}: ${req.path}`);
+    },
     pathRewrite: (path, req) => {
       // For OPTIONS requests, return null to prevent proxying
       if (req.method === 'OPTIONS') {
@@ -90,6 +92,11 @@ const createProxy = (serviceName, targetUrl) => {
       
       // For OPTIONS requests, handle directly
       if (req.method === 'OPTIONS') {
+        res.header('Access-Control-Allow-Origin', 'https://candidate-v.vercel.app');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Max-Age', '86400');
         res.status(200).end();
         return;
       }
