@@ -211,6 +211,201 @@ app.get('/api/cors-test', (req, res) => {
   });
 });
 
+// Mock CV endpoints
+app.get('/api/cv', (req, res) => {
+  console.log('Received request for CV list');
+  
+  // Create mock CV data
+  const cvs = [
+    {
+      id: 'cv-001',
+      title: 'Software Developer Resume',
+      created_at: '2025-01-15T10:30:00Z',
+      updated_at: '2025-04-10T14:20:00Z',
+      user_id: req.headers.authorization ? 'user-from-token' : 'anonymous-user',
+      sections: [
+        { id: 'personal', title: 'Personal Information', order: 1 },
+        { id: 'education', title: 'Education', order: 2 },
+        { id: 'experience', title: 'Work Experience', order: 3 },
+        { id: 'skills', title: 'Skills', order: 4 }
+      ],
+      status: 'active'
+    },
+    {
+      id: 'cv-002',
+      title: 'Project Manager CV',
+      created_at: '2025-02-20T09:15:00Z',
+      updated_at: '2025-04-12T11:45:00Z',
+      user_id: req.headers.authorization ? 'user-from-token' : 'anonymous-user',
+      sections: [
+        { id: 'personal', title: 'Personal Details', order: 1 },
+        { id: 'summary', title: 'Professional Summary', order: 2 },
+        { id: 'experience', title: 'Project Experience', order: 3 },
+        { id: 'education', title: 'Education', order: 4 },
+        { id: 'certificates', title: 'Certifications', order: 5 }
+      ],
+      status: 'active'
+    }
+  ];
+  
+  res.status(200).json({
+    status: 'success',
+    data: cvs,
+    count: cvs.length,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// CV detail endpoint
+app.get('/api/cv/:id', (req, res) => {
+  console.log(`Received request for CV with ID: ${req.params.id}`);
+  
+  // Create mock CV data based on the requested ID
+  const cv = {
+    id: req.params.id,
+    title: req.params.id === 'cv-001' ? 'Software Developer Resume' : 'Project Manager CV',
+    created_at: '2025-01-15T10:30:00Z',
+    updated_at: '2025-04-10T14:20:00Z',
+    user_id: req.headers.authorization ? 'user-from-token' : 'anonymous-user',
+    sections: [
+      {
+        id: 'personal',
+        title: 'Personal Information',
+        order: 1,
+        items: [
+          { field: 'name', value: 'John Doe' },
+          { field: 'email', value: 'john.doe@example.com' },
+          { field: 'phone', value: '+1-555-123-4567' },
+          { field: 'location', value: 'New York, NY' }
+        ]
+      },
+      {
+        id: 'education',
+        title: 'Education',
+        order: 2,
+        items: [
+          {
+            title: 'Bachelor of Science in Computer Science',
+            institution: 'New York University',
+            start_date: '2018-09-01',
+            end_date: '2022-05-31',
+            description: 'Graduated with honors. Specialized in Software Engineering.'
+          }
+        ]
+      },
+      {
+        id: 'experience',
+        title: 'Work Experience',
+        order: 3,
+        items: [
+          {
+            title: 'Software Developer',
+            company: 'Tech Solutions Inc.',
+            start_date: '2022-06-15',
+            end_date: null,
+            current: true,
+            description: 'Developing and maintaining web applications using React and Node.js.'
+          },
+          {
+            title: 'Intern Developer',
+            company: 'WebDev Studios',
+            start_date: '2021-06-01',
+            end_date: '2021-08-31',
+            current: false,
+            description: 'Assisted in frontend development and UI/UX improvements.'
+          }
+        ]
+      },
+      {
+        id: 'skills',
+        title: 'Skills',
+        order: 4,
+        items: [
+          { skill: 'JavaScript', level: 'Expert' },
+          { skill: 'React', level: 'Advanced' },
+          { skill: 'Node.js', level: 'Advanced' },
+          { skill: 'Python', level: 'Intermediate' },
+          { skill: 'SQL', level: 'Intermediate' }
+        ]
+      }
+    ],
+    status: 'active'
+  };
+  
+  res.status(200).json({
+    status: 'success',
+    data: cv,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Create CV endpoint
+app.post('/api/cv', (req, res) => {
+  console.log('Received request to create a new CV:', req.body);
+  
+  // Create a new CV with the provided data or defaults
+  const newCV = {
+    id: `cv-${Date.now()}`,
+    title: req.body.title || 'Untitled CV',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_id: req.headers.authorization ? 'user-from-token' : 'anonymous-user',
+    sections: req.body.sections || [
+      { id: 'personal', title: 'Personal Information', order: 1 },
+      { id: 'education', title: 'Education', order: 2 },
+      { id: 'experience', title: 'Work Experience', order: 3 },
+      { id: 'skills', title: 'Skills', order: 4 }
+    ],
+    status: 'active'
+  };
+  
+  res.status(201).json({
+    status: 'success',
+    message: 'CV created successfully',
+    data: newCV,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Update CV endpoint
+app.put('/api/cv/:id', (req, res) => {
+  console.log(`Received request to update CV with ID: ${req.params.id}`, req.body);
+  
+  // Return the updated CV (combine request data with existing mock data)
+  const updatedCV = {
+    id: req.params.id,
+    title: req.body.title || 'Updated CV',
+    created_at: '2025-01-15T10:30:00Z',
+    updated_at: new Date().toISOString(),
+    user_id: req.headers.authorization ? 'user-from-token' : 'anonymous-user',
+    sections: req.body.sections || [
+      { id: 'personal', title: 'Personal Information', order: 1 },
+      { id: 'education', title: 'Education', order: 2 },
+      { id: 'experience', title: 'Work Experience', order: 3 },
+      { id: 'skills', title: 'Skills', order: 4 }
+    ],
+    status: req.body.status || 'active'
+  };
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'CV updated successfully',
+    data: updatedCV,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Delete CV endpoint
+app.delete('/api/cv/:id', (req, res) => {
+  console.log(`Received request to delete CV with ID: ${req.params.id}`);
+  
+  res.status(200).json({
+    status: 'success',
+    message: `CV with ID ${req.params.id} deleted successfully`,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Create proxy middleware function
 const createProxy = (serviceName, targetUrl) => {
   return createProxyMiddleware({
@@ -262,7 +457,14 @@ app.use('/api/auth', (req, res, next) => {
 });
 
 app.use('/api/users', createProxy('user', SERVICE_URLS.user));
-app.use('/api/cv', createProxy('cv', SERVICE_URLS.cv));
+
+// Modified CV proxy to prioritize local implementations
+app.use('/api/cv', (req, res, next) => {
+  // Our local mock implementations should have already handled CV routes
+  // This is a fallback if we need to proxy to the actual service
+  return createProxy('cv', SERVICE_URLS.cv)(req, res, next);
+});
+
 app.use('/api/export', createProxy('export', SERVICE_URLS.export));
 app.use('/api/ai', createProxy('ai', SERVICE_URLS.ai));
 app.use('/api/payments', createProxy('payment', SERVICE_URLS.payment));
@@ -277,10 +479,10 @@ app.use((req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
+  app.listen(PORT, () => {
   console.log(`Simplified API Gateway running on port ${PORT}`);
-  console.log('\nConfigured Services:');
-  Object.entries(SERVICE_URLS).forEach(([service, url]) => {
+      console.log('\nConfigured Services:');
+      Object.entries(SERVICE_URLS).forEach(([service, url]) => {
     console.log(`- ${service.toUpperCase()} Service: ${url}`);
   });
 });
