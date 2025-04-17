@@ -57,7 +57,7 @@ async function checkServiceHealth(name, url) {
         validateStatus: status => status < 500
       });
     }
-    
+
     const responseTime = Date.now() - startTime;
     
     console.log(`Health check successful for ${name} using ${url}`);
@@ -84,13 +84,13 @@ async function checkServiceHealth(name, url) {
 
 // Environment variables with more explicit defaults
 const SERVICE_URLS = {
-  // Use the exact format shown in the logs for each service
-  auth: process.env.AUTH_SERVICE_URL || 'http://auth_service:8001',
-  user: process.env.USER_SERVICE_URL || 'http://candidatev-b9a8ae05.railway.internal:8001',
-  cv: process.env.CV_SERVICE_URL || 'http://candidatev.railway.internal:8001',
+  // Use public URLs like the working export service for all services
+  auth: process.env.AUTH_SERVICE_URL || 'https://candidatev-auth-service.up.railway.app',
+  user: process.env.USER_SERVICE_URL || 'https://candidatev-user-service.up.railway.app',
+  cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app', 
   export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
-  ai: process.env.AI_SERVICE_URL || 'http://ai_service.railway.internal:8001',
-  payment: process.env.PAYMENT_SERVICE_URL || 'http://payment_service.railway.internal:8001'
+  ai: process.env.AI_SERVICE_URL || 'https://candidatev-ai-service.up.railway.app',
+  payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app'
 };
 
 // Log level from environment or default to info
