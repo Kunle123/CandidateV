@@ -27,7 +27,7 @@ import {
   IconButton,
   Tooltip
 } from '@chakra-ui/react';
-import { userService } from '../../api';
+import userService from '../../api/userService';
 import useApi from '../../hooks/useApi';
 import { FaSun, FaMoon, FaBell, FaBellSlash, FaEnvelope, FaUserCog, FaGlobe, FaLock, FaUser, FaArrowLeft } from 'react-icons/fa';
 
