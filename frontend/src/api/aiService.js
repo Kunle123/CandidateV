@@ -11,7 +11,7 @@ const aiService = {
         payload.sections = sections;
       }
       
-      const response = await apiClient.post('/ai/analyze', payload);
+      const response = await apiClient.post('ai/analyze', payload);
       return { success: true, data: response.data };
     } catch (error) {
       return { 
@@ -24,7 +24,7 @@ const aiService = {
   // Optimize specific sections of a CV
   async optimizeCV(cvId, targets) {
     try {
-      const response = await apiClient.post('/ai/optimize', {
+      const response = await apiClient.post('ai/optimize', {
         cv_id: cvId,
         targets: targets
       });
@@ -40,7 +40,7 @@ const aiService = {
   // Get job match score for CV against a job description
   async getJobMatch(cvId, jobDescription) {
     try {
-      const response = await apiClient.post('/ai/job-match', {
+      const response = await apiClient.post('ai/job-match', {
         cv_id: cvId,
         job_description: jobDescription
       });
@@ -56,7 +56,7 @@ const aiService = {
   // Get detailed job application analysis
   async getJobMatchAnalysis(cvId, jobDescription) {
     try {
-      const response = await apiClient.post('/ai/job-match/analyze', {
+      const response = await apiClient.post('ai/job-match/analyze', {
         cv_id: cvId,
         job_description: jobDescription,
         detailed: true
@@ -73,7 +73,7 @@ const aiService = {
   // Check AI service health status
   async checkHealth() {
     try {
-      const response = await apiClient.get('/health');
+      const response = await apiClient.get('health');
       return { 
         success: true, 
         data: {

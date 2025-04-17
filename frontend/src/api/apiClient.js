@@ -120,8 +120,10 @@ if (config.features.requestInterceptors) {
     (request) => {
       // Ensure API paths are correctly formatted for Railway API Gateway
       if (request.url && !request.url.startsWith('/api/') && !request.url.startsWith('http')) {
-        console.log(`🔄 Adding /api prefix to request path: ${request.url}`);
-        request.url = `/api/${request.url}`;
+        // Remove any leading slashes to prevent double slashes
+        const cleanUrl = request.url.replace(/^\/+/, '');
+        console.log(`🔄 Adding /api prefix to request path: ${cleanUrl}`);
+        request.url = `/api/${cleanUrl}`;
       }
       
       // Add auth token (ensure it's properly formatted)
@@ -228,26 +230,30 @@ if (config.features.responseInterceptors) {
 export const apiService = {
   // Wrapper for GET requests
   get: (path, config = {}) => {
-    // Ensure path starts with /api/
-    const fixedPath = path.startsWith('/api/') ? path : `/api/${path}`;
+    // Ensure path has no leading slash but doesn't already have /api/
+    const cleanPath = path.replace(/^\/+/, '');
+    const fixedPath = cleanPath.startsWith('api/') ? cleanPath : `api/${cleanPath}`;
     return apiClient.get(fixedPath, config);
   },
   
   // Wrapper for POST requests
   post: (path, data = {}, config = {}) => {
-    const fixedPath = path.startsWith('/api/') ? path : `/api/${path}`;
+    const cleanPath = path.replace(/^\/+/, '');
+    const fixedPath = cleanPath.startsWith('api/') ? cleanPath : `api/${cleanPath}`;
     return apiClient.post(fixedPath, data, config);
   },
   
   // Wrapper for PUT requests
   put: (path, data = {}, config = {}) => {
-    const fixedPath = path.startsWith('/api/') ? path : `/api/${path}`;
+    const cleanPath = path.replace(/^\/+/, '');
+    const fixedPath = cleanPath.startsWith('api/') ? cleanPath : `api/${cleanPath}`;
     return apiClient.put(fixedPath, data, config);
   },
   
   // Wrapper for DELETE requests
   delete: (path, config = {}) => {
-    const fixedPath = path.startsWith('/api/') ? path : `/api/${path}`;
+    const cleanPath = path.replace(/^\/+/, '');
+    const fixedPath = cleanPath.startsWith('api/') ? cleanPath : `api/${cleanPath}`;
     return apiClient.delete(fixedPath, config);
   }
 };
