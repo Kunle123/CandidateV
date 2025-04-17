@@ -114,13 +114,13 @@ async function checkServiceHealth(name, url) {
 
 // Environment variables with more explicit defaults
 const SERVICE_URLS = {
-  // Prioritize public URLs since they're working
-  auth: process.env.AUTH_SERVICE_URL || 'https://candidatev-auth-service.up.railway.app',
-  user: process.env.USER_SERVICE_URL || 'https://candidatev-user-service.up.railway.app',
-  cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app',
-  export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
-  ai: process.env.AI_SERVICE_URL || 'https://candidatev-ai-service.up.railway.app',
-  payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app'
+  // Try both approaches: Railway internal first, public URLs as fallback
+  auth: process.env.AUTH_SERVICE_URL || 'http://auth_service.railway.internal:8001',
+  user: process.env.USER_SERVICE_URL || 'http://user_service.railway.internal:8001',
+  cv: process.env.CV_SERVICE_URL || 'http://cv_service.railway.internal:8001',
+  export: process.env.EXPORT_SERVICE_URL || 'http://export_service.railway.internal:8001',
+  ai: process.env.AI_SERVICE_URL || 'http://ai_service.railway.internal:8001',
+  payment: process.env.PAYMENT_SERVICE_URL || 'http://payment_service.railway.internal:8001'
 };
 
 // Log level from environment or default to info
