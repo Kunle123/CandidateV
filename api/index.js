@@ -43,10 +43,20 @@ async function checkServiceHealth(name, url) {
     
     console.log(`Checking health for ${name} using ${isPublicUrl ? 'public' : 'internal'} URL: ${url}`);
     
-    const response = await axios.get(`${url}/api/health`, { 
-      timeout: 10000,
-      validateStatus: status => status < 500
-    });
+    // Try both /api/health and /health endpoints
+    let response;
+    try {
+      response = await axios.get(`${url}/api/health`, { 
+        timeout: 10000,
+        validateStatus: status => status < 500
+      });
+    } catch (error) {
+      console.log(`Failed to reach ${url}/api/health, trying ${url}/health`);
+      response = await axios.get(`${url}/health`, { 
+        timeout: 10000,
+        validateStatus: status => status < 500
+      });
+    }
     
     const responseTime = Date.now() - startTime;
     
@@ -74,13 +84,13 @@ async function checkServiceHealth(name, url) {
 
 // Environment variables with more explicit defaults
 const SERVICE_URLS = {
-  // Use public URLs directly since they're reliable
-  auth: process.env.AUTH_SERVICE_URL || 'https://candidatev-auth-service.up.railway.app',
-  user: process.env.USER_SERVICE_URL || 'https://candidatev-user-service.up.railway.app',
-  cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app',
+  // Use the exact format shown in the logs for each service
+  auth: process.env.AUTH_SERVICE_URL || 'http://auth_service:8001',
+  user: process.env.USER_SERVICE_URL || 'http://candidatev-b9a8ae05.railway.internal:8001',
+  cv: process.env.CV_SERVICE_URL || 'http://candidatev.railway.internal:8001',
   export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
-  ai: process.env.AI_SERVICE_URL || 'https://candidatev-ai-service.up.railway.app',
-  payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app'
+  ai: process.env.AI_SERVICE_URL || 'http://ai_service.railway.internal:8001',
+  payment: process.env.PAYMENT_SERVICE_URL || 'http://payment_service.railway.internal:8001'
 };
 
 // Log level from environment or default to info
