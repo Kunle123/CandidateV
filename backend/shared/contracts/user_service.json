@@ -1,0 +1,477 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "User Management Service API Contracts",
+  "description": "JSON Schema definitions for the User Management Service API endpoints",
+  "definitions": {
+    "SocialLinks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "linkedin": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "LinkedIn profile URL"
+        },
+        "github": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "GitHub profile URL"
+        },
+        "twitter": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "Twitter profile URL"
+        }
+      }
+    },
+    "Preferences": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "enum": ["light", "dark", "system"],
+          "default": "light",
+          "description": "User's preferred theme"
+        },
+        "notifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether user has enabled notifications"
+        }
+      }
+    },
+    "UserProfileUpdate": {
+      "type": "object",
+      "properties": {
+        "bio": {
+          "type": ["string", "null"],
+          "description": "User's bio/about section"
+        },
+        "job_title": {
+          "type": ["string", "null"],
+          "description": "User's current job title"
+        },
+        "location": {
+          "type": ["string", "null"],
+          "description": "User's location"
+        },
+        "website": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "User's personal website URL"
+        },
+        "social_links": {
+          "$ref": "#/definitions/SocialLinks"
+        }
+      }
+    },
+    "UserProfile": {
+      "type": "object",
+      "required": ["id", "email", "name", "created_at", "updated_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "User's unique identifier"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address"
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name"
+        },
+        "bio": {
+          "type": ["string", "null"],
+          "description": "User's bio/about section"
+        },
+        "profile_image_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "URL to user's profile image"
+        },
+        "job_title": {
+          "type": ["string", "null"],
+          "description": "User's current job title"
+        },
+        "location": {
+          "type": ["string", "null"],
+          "description": "User's location"
+        },
+        "website": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "User's personal website URL"
+        },
+        "social_links": {
+          "$ref": "#/definitions/SocialLinks"
+        },
+        "preferences": {
+          "$ref": "#/definitions/Preferences"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the profile was created"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the profile was last updated"
+        }
+      }
+    },
+    "PreferencesUpdate": {
+      "type": "object",
+      "required": ["preferences"],
+      "properties": {
+        "preferences": {
+          "$ref": "#/definitions/Preferences"
+        }
+      }
+    },
+    "ProfileImageResponse": {
+      "type": "object",
+      "required": ["profile_image_url"],
+      "properties": {
+        "profile_image_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to user's profile image"
+        }
+      }
+    },
+    "ExperienceCreate": {
+      "type": "object",
+      "required": ["company", "position", "start_date"],
+      "properties": {
+        "company": {
+          "type": "string",
+          "description": "Company name"
+        },
+        "position": {
+          "type": "string",
+          "description": "Job position/title"
+        },
+        "start_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "Start date in YYYY-MM format"
+        },
+        "end_date": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "End date in YYYY-MM format, or null for current positions"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Job description and responsibilities"
+        }
+      }
+    },
+    "Experience": {
+      "allOf": [
+        { "$ref": "#/definitions/ExperienceCreate" },
+        {
+          "type": "object",
+          "required": ["id", "created_at", "updated_at"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Experience entry ID"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Timestamp when the entry was created"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Timestamp when the entry was last updated"
+            }
+          }
+        }
+      ]
+    },
+    "EducationCreate": {
+      "type": "object",
+      "required": ["institution", "degree", "field_of_study", "start_date"],
+      "properties": {
+        "institution": {
+          "type": "string",
+          "description": "Educational institution name"
+        },
+        "degree": {
+          "type": "string",
+          "description": "Degree type (e.g., 'Bachelor of Science')"
+        },
+        "field_of_study": {
+          "type": "string",
+          "description": "Field of study or major"
+        },
+        "start_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "Start date in YYYY-MM format"
+        },
+        "end_date": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "End date in YYYY-MM format, or null for current education"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Additional information about the education"
+        }
+      }
+    },
+    "Education": {
+      "allOf": [
+        { "$ref": "#/definitions/EducationCreate" },
+        {
+          "type": "object",
+          "required": ["id", "created_at", "updated_at"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Education entry ID"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Timestamp when the entry was created"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Timestamp when the entry was last updated"
+            }
+          }
+        }
+      ]
+    },
+    "HealthResponse": {
+      "type": "object",
+      "required": ["status", "timestamp", "version", "database_connection", "auth_service_connection"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["healthy", "unhealthy"],
+          "description": "Service health status"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Current timestamp"
+        },
+        "version": {
+          "type": "string",
+          "description": "Service version"
+        },
+        "database_connection": {
+          "type": "string",
+          "enum": ["ok", "error"],
+          "description": "Database connection status"
+        },
+        "auth_service_connection": {
+          "type": "string",
+          "enum": ["ok", "error"],
+          "description": "Authentication service connection status"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "required": ["status", "message"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["error"],
+          "description": "Error status"
+        },
+        "message": {
+          "type": "string",
+          "description": "Error message"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request ID for tracing"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/users/me": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/UserProfile" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "put": {
+        "requestBody": { "$ref": "#/definitions/UserProfileUpdate" },
+        "responses": {
+          "200": { "$ref": "#/definitions/UserProfile" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/users/me/preferences": {
+      "put": {
+        "requestBody": { "$ref": "#/definitions/PreferencesUpdate" },
+        "responses": {
+          "200": {
+            "type": "object",
+            "required": ["preferences"],
+            "properties": {
+              "preferences": { "$ref": "#/definitions/Preferences" }
+            }
+          },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/users/me/image": {
+      "post": {
+        "requestBody": {
+          "content": "multipart/form-data",
+          "schema": {
+            "type": "object",
+            "required": ["file"],
+            "properties": {
+              "file": {
+                "type": "string",
+                "format": "binary",
+                "description": "Profile image file"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/definitions/ProfileImageResponse" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "delete": {
+        "responses": {
+          "204": {
+            "description": "Profile image successfully deleted"
+          },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/users/me/experience": {
+      "get": {
+        "responses": {
+          "200": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/Experience" }
+          },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "post": {
+        "requestBody": { "$ref": "#/definitions/ExperienceCreate" },
+        "responses": {
+          "201": { "$ref": "#/definitions/Experience" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/users/me/experience/{experience_id}": {
+      "put": {
+        "requestBody": { "$ref": "#/definitions/ExperienceCreate" },
+        "responses": {
+          "200": { "$ref": "#/definitions/Experience" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "type": "object",
+            "required": ["message"],
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "Success message"
+              }
+            }
+          },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/users/me/education": {
+      "get": {
+        "responses": {
+          "200": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/Education" }
+          },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "post": {
+        "requestBody": { "$ref": "#/definitions/EducationCreate" },
+        "responses": {
+          "201": { "$ref": "#/definitions/Education" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/users/me/education/{education_id}": {
+      "put": {
+        "requestBody": { "$ref": "#/definitions/EducationCreate" },
+        "responses": {
+          "200": { "$ref": "#/definitions/Education" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "type": "object",
+            "required": ["message"],
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "Success message"
+              }
+            }
+          },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/HealthResponse" }
+        }
+      }
+    }
+  }
+} 

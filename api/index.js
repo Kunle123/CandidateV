@@ -6,33 +6,79 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const winston = require('winston');
 const { v4: uuidv4 } = require('uuid');
+const http = require('http');
+const axios = require('axios');
 
-// Environment variables
-const PORT = process.env.PORT || 3000;
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8000';
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:8001';
-const CV_SERVICE_URL = process.env.CV_SERVICE_URL || 'http://localhost:8002';
-const EXPORT_SERVICE_URL = process.env.EXPORT_SERVICE_URL || 'http://localhost:8003';
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8004';
-const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:8005';
+// Fixed PORT for API Gateway - part of refactor strategy
+const PORT = 3000;
 
-// For Vercel deployment
-const isVercel = process.env.VERCEL === '1';
+// Validate port availability before continuing
+function checkPortAvailability(port) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer();
+    
+    server.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        reject(new Error(`Port ${port} is already in use. Please stop any existing services using this port.`));
+      } else {
+        reject(err);
+      }
+    });
+    
+    server.once('listening', () => {
+      server.close();
+      resolve();
+    });
+    
+    server.listen(port);
+  });
+}
+
+// Check service health - utility for service validation
+async function checkServiceHealth(name, url) {
+  try {
+    const startTime = Date.now();
+    const response = await axios.get(`${url}/health`, { 
+      timeout: 2000,
+      validateStatus: status => status < 500 // Accept any non-500 status
+    });
+    const responseTime = Date.now() - startTime;
+    
+    return {
+      available: response.status < 400,
+      status: response.status,
+      responseTime,
+      message: response.data?.message || 'OK',
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    return {
+      available: false,
+      status: error.response?.status || 0,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
+// Environment variables with more explicit defaults
+const SERVICE_URLS = {
+  auth: process.env.AUTH_SERVICE_URL || 'http://localhost:8000',
+  user: process.env.USER_SERVICE_URL || 'http://localhost:8001',
+  cv: process.env.CV_SERVICE_URL || 'http://localhost:8002',
+  export: process.env.EXPORT_SERVICE_URL || 'http://localhost:8003',
+  ai: process.env.AI_SERVICE_URL || 'http://localhost:8004',
+  payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:8005'
+};
+
+// Log level from environment or default to info
+const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
+// Debug flag for verbose logging - parse string to boolean
+const DEBUG = process.env.DEBUG === 'true';
 
 // Configure logger
-let logger;
-
-if (isVercel) {
-  // Simplified logging for Vercel
-  logger = {
-    info: console.log,
-    error: console.error,
-    warn: console.warn
-  };
-} else {
-  // Full logging for other environments
-  logger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'info',
+const logger = winston.createLogger({
+  level: LOG_LEVEL,
     format: winston.format.combine(
       winston.format.timestamp(),
       winston.format.json()
@@ -44,7 +90,6 @@ if (isVercel) {
       new winston.transports.File({ filename: 'logs/combined.log' })
     ]
   });
-}
 
 // Initialize Express app
 const app = express();
@@ -56,31 +101,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add path validation middleware to detect and fix duplicated /api segments
+app.use((req, res, next) => {
+  if (req.path.includes('/api/api/')) {
+    logger.warn(`Duplicate API path detected: ${req.path}`);
+    
+    // Fix the path by replacing duplicated segments
+    const fixedPath = req.path.replace(/\/api\/api\//g, '/api/');
+    logger.info(`Redirecting to fixed path: ${fixedPath}`);
+    
+    // Redirect to the fixed path
+    return res.redirect(fixedPath);
+  }
+  next();
+});
+
 // Middleware
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-
-// Use morgan only in non-Vercel environments
-if (!isVercel) {
   app.use(morgan('combined'));
-}
-
-// Logging middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    logger.info({
-      method: req.method,
-      url: req.originalUrl,
-      status: res.statusCode,
-      duration,
-      requestId: req.id
-    });
-  });
-  next();
-});
 
 // Service status tracking
 const serviceStatus = {
@@ -92,233 +132,221 @@ const serviceStatus = {
   payment: { available: false, lastChecked: null }
 };
 
-// Forward auth header to backend services
-const addAuthHeader = (proxyReq, req) => {
-  if (req.headers.authorization) {
-    proxyReq.setHeader('Authorization', req.headers.authorization);
-  }
-};
+// Periodic health checks for all services
+function startHealthChecks() {
+  const checkInterval = process.env.HEALTH_CHECK_INTERVAL || 15000; // Default 15 seconds
+  
+  setInterval(async () => {
+    // Check all services in parallel
+    const checks = Object.entries(SERVICE_URLS).map(async ([service, url]) => {
+      const health = await checkServiceHealth(service, url);
+      serviceStatus[service] = {
+        ...health,
+        lastChecked: new Date()
+      };
+      
+      if (!health.available) {
+        logger.warn(`Service ${service} health check failed: ${health.error || 'Unknown error'}`);
+      }
+    });
+    
+    await Promise.all(checks);
+  }, checkInterval);
+  
+  logger.info(`Started health checks with interval: ${checkInterval}ms`);
+}
 
-// Proxy configuration with error handling
-const createServiceProxy = (servicePath, targetUrl, serviceName) => {
+// Service status endpoint for monitoring
+app.get('/api/gateway-status', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    services: serviceStatus,
+    serviceUrls: SERVICE_URLS,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Detailed health check endpoint
+app.get('/api/health', async (req, res) => {
+  // Perform live health checks if requested
+  if (req.query.check === 'true') {
+    const checks = await Promise.all(
+      Object.entries(SERVICE_URLS).map(async ([name, url]) => {
+        return { 
+          service: name, 
+          ...(await checkServiceHealth(name, url))
+        };
+      })
+    );
+    
+    const allHealthy = checks.every(check => check.available);
+    
+    return res.status(allHealthy ? 200 : 503).json({
+      status: allHealthy ? 'healthy' : 'degraded',
+      gateway: {
+        uptime: process.uptime(),
+        version: process.env.npm_package_version || '1.0.0',
+        timestamp: new Date().toISOString()
+      },
+      services: checks,
+      environment: process.env.NODE_ENV || 'development',
+    });
+  }
+  
+  // Simple health status based on cached status
+  const allAvailable = Object.values(serviceStatus).every(s => s.available);
+  res.status(allAvailable ? 200 : 503).json({
+    status: allAvailable ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    services: serviceStatus
+  });
+});
+
+// Create a unified proxy creator for all services
+const createServiceProxy = (serviceName, targetUrl) => {
   return createProxyMiddleware({
     target: targetUrl,
     changeOrigin: true,
-    pathRewrite: {
-      [`^/api${servicePath}`]: '/api',
-    },
     onProxyReq: (proxyReq, req) => {
-      // Add request ID to the proxied request
+      // Add request ID to all proxied requests
       proxyReq.setHeader('X-Request-ID', req.id);
       
-      // Forward authentication header
-      addAuthHeader(proxyReq, req);
+      // Forward auth header if present
+      if (req.headers.authorization) {
+        if (DEBUG) console.log(`Token forwarded to ${serviceName}: ${req.path}`);
+        proxyReq.setHeader('Authorization', req.headers.authorization);
+      }
       
-      // Update service status on successful proxy request
+      if (DEBUG) console.log(`${serviceName.toUpperCase()} REQUEST: ${req.method} ${req.originalUrl} -> ${targetUrl}${req.path}`);
+      
+      // Update service status
       serviceStatus[serviceName].available = true;
       serviceStatus[serviceName].lastChecked = new Date();
     },
     onProxyRes: (proxyRes, req, res) => {
-      // Track successful responses
+      if (DEBUG) console.log(`${serviceName.toUpperCase()} RESPONSE: ${proxyRes.statusCode} for ${req.originalUrl}`);
+      
       if (proxyRes.statusCode < 500) {
         serviceStatus[serviceName].available = true;
-        serviceStatus[serviceName].lastChecked = new Date();
       } else {
         serviceStatus[serviceName].available = false;
-        serviceStatus[serviceName].lastChecked = new Date();
         serviceStatus[serviceName].lastError = `HTTP ${proxyRes.statusCode}`;
-        
-        logger.error({
-          message: 'Service returned error status',
-          serviceName,
-          statusCode: proxyRes.statusCode,
-          path: req.path,
-          requestId: req.id
-        });
+        logger.error(`${serviceName} service error: ${proxyRes.statusCode} for ${req.originalUrl}`);
       }
     },
     onError: (err, req, res) => {
-      // Update service status on error
+      const errorMessage = `${serviceName.toUpperCase()} ERROR: ${err.message} for ${req.originalUrl}`;
+      console.error(errorMessage);
+      
       serviceStatus[serviceName].available = false;
-      serviceStatus[serviceName].lastChecked = new Date();
       serviceStatus[serviceName].lastError = err.message;
+      logger.error(`${serviceName} service unavailable: ${err.message} for ${req.originalUrl}`);
       
-      logger.error({
-        message: 'Proxy error',
-        error: err.message,
-        path: req.path,
-        requestId: req.id,
-        service: targetUrl,
-        serviceName
-      });
-      
-      // Send a more detailed error response
-      res.status(503).json({
+      // Provide a more helpful error message to the client
+      const errorResponse = {
         status: 'error',
-        message: `The ${serviceName} service is temporarily unavailable`,
-        requestId: req.id,
+        message: `${serviceName} service temporarily unavailable`,
         error: err.message,
-        timestamp: new Date().toISOString()
-      });
+        requestId: req.id,
+        timestamp: new Date().toISOString(),
+        suggestions: [
+          'The service may still be starting up - try again in a moment',
+          'Check if the service is running with correct port configuration',
+          'Verify network connectivity between services'
+        ]
+      };
+      
+      // For critical auth failures, provide more guidance
+      if (serviceName === 'auth') {
+        errorResponse.suggestions.unshift('Try logging out and back in to refresh your session');
+      }
+      
+      res.status(503).json(errorResponse);
     }
   });
 };
 
-// Service routes
-app.use('/api/auth', createServiceProxy('/auth', AUTH_SERVICE_URL, 'auth'));
-app.use('/api/users', createServiceProxy('/users', USER_SERVICE_URL, 'user'));
+// Route all services using a consistent approach
+app.use('/api/auth', createServiceProxy('auth', SERVICE_URLS.auth));
+app.use('/api/users', createServiceProxy('user', SERVICE_URLS.user));
+app.use('/api/cv', createServiceProxy('cv', SERVICE_URLS.cv));
+app.use('/api/export', createServiceProxy('export', SERVICE_URLS.export));
+app.use('/api/ai', createServiceProxy('ai', SERVICE_URLS.ai));
+app.use('/api/payments', createServiceProxy('payment', SERVICE_URLS.payment));
 
-// Only add CV service if URL is provided
-if (CV_SERVICE_URL && CV_SERVICE_URL !== 'http://localhost:8002') {
-  app.use('/api/cv', createServiceProxy('/cv', CV_SERVICE_URL, 'cv'));
-} else {
-  // Add CV service stub for testing
-  app.all('/api/cv/*', (req, res) => {
-    logger.warn({
-      message: 'CV service not configured',
-      path: req.path,
-      requestId: req.id
-    });
-    res.status(503).json({
-      status: 'error',
-      message: 'CV service is not configured yet',
-      requestId: req.id,
-      timestamp: new Date().toISOString()
-    });
-  });
-}
-
-// Add other services if URLs are provided
-if (EXPORT_SERVICE_URL && EXPORT_SERVICE_URL !== 'http://localhost:8003') {
-  app.use('/api/export', createServiceProxy('/export', EXPORT_SERVICE_URL, 'export'));
-}
-
-if (AI_SERVICE_URL && AI_SERVICE_URL !== 'http://localhost:8004') {
-  app.use('/api/ai', createServiceProxy('/ai', AI_SERVICE_URL, 'ai'));
-}
-
-if (PAYMENT_SERVICE_URL && PAYMENT_SERVICE_URL !== 'http://localhost:8005') {
-  app.use('/api/payments', createServiceProxy('/payments', PAYMENT_SERVICE_URL, 'payment'));
-}
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  // Check current status of all services
-  const servicesStatus = {
-    auth: {
-      url: AUTH_SERVICE_URL,
-      available: serviceStatus.auth.available,
-      lastChecked: serviceStatus.auth.lastChecked
-    },
-    user: {
-      url: USER_SERVICE_URL,
-      available: serviceStatus.user.available,
-      lastChecked: serviceStatus.user.lastChecked
-    }
-  };
-  
-  // Only include configured services
-  if (CV_SERVICE_URL && CV_SERVICE_URL !== 'http://localhost:8002') {
-    servicesStatus.cv = {
-      url: CV_SERVICE_URL,
-      available: serviceStatus.cv.available,
-      lastChecked: serviceStatus.cv.lastChecked
-    };
-  }
-  
-  if (EXPORT_SERVICE_URL && EXPORT_SERVICE_URL !== 'http://localhost:8003') {
-    servicesStatus.export = {
-      url: EXPORT_SERVICE_URL,
-      available: serviceStatus.export.available,
-      lastChecked: serviceStatus.export.lastChecked
-    };
-  }
-  
-  if (AI_SERVICE_URL && AI_SERVICE_URL !== 'http://localhost:8004') {
-    servicesStatus.ai = {
-      url: AI_SERVICE_URL,
-      available: serviceStatus.ai.available,
-      lastChecked: serviceStatus.ai.lastChecked
-    };
-  }
-  
-  if (PAYMENT_SERVICE_URL && PAYMENT_SERVICE_URL !== 'http://localhost:8005') {
-    servicesStatus.payment = {
-      url: PAYMENT_SERVICE_URL,
-      available: serviceStatus.payment.available,
-      lastChecked: serviceStatus.payment.lastChecked
-    };
-  }
-  
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: isVercel ? 'vercel' : 'other',
-    services: servicesStatus
-  });
-});
-
-// Debug endpoint for Vercel environment
-app.get('/api/debug', (req, res) => {
-  res.status(200).json({
-    environment: {
-      isVercel: isVercel,
-      nodeEnv: process.env.NODE_ENV,
-      logLevel: process.env.LOG_LEVEL || 'info'
-    },
-    serviceUrls: {
-      auth: AUTH_SERVICE_URL,
-      user: USER_SERVICE_URL,
-      cv: CV_SERVICE_URL,
-      export: EXPORT_SERVICE_URL,
-      ai: AI_SERVICE_URL,
-      payment: PAYMENT_SERVICE_URL
-    },
-    serviceStatus,
-    requestId: req.id
-  });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  logger.error({
-    message: 'Unhandled error',
-    error: err.message,
-    stack: err.stack,
-    requestId: req.id
-  });
-  res.status(500).json({
-    status: 'error',
-    message: 'Internal server error',
-    requestId: req.id,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// 404 handler
+// Default 404 handler
 app.use((req, res) => {
-  logger.warn({
-    message: 'Route not found',
-    method: req.method,
-    url: req.originalUrl,
-    requestId: req.id
-  });
+  logger.warn(`Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     status: 'error',
-    message: 'Not found',
+    message: 'Route not found',
     path: req.originalUrl,
     requestId: req.id,
-    timestamp: new Date().toISOString()
+    suggestions: [
+      'Check the URL path for typos',
+      'Verify that the service endpoint exists',
+      'Ensure the path starts with /api/ followed by the service name'
+    ]
   });
 });
 
-// Start server (only in non-Vercel environments)
-if (!isVercel) {
+// Async startup function to validate port first
+async function startServer() {
+  try {
+    // Check if port is available
+    await checkPortAvailability(PORT);
+    
+    // Initial health check to log service status
+    logger.info('Performing initial service health checks...');
+    await Promise.all(
+      Object.entries(SERVICE_URLS).map(async ([service, url]) => {
+        try {
+          const health = await checkServiceHealth(service, url);
+          serviceStatus[service] = {
+            ...health,
+            lastChecked: new Date()
+          };
+          
+          if (health.available) {
+            logger.info(`Service ${service} is available at ${url} (${health.responseTime}ms)`);
+          } else {
+            logger.warn(`Service ${service} at ${url} is not responding: ${health.error || 'Unknown error'}`);
+          }
+        } catch (error) {
+          logger.error(`Failed to check health of ${service}: ${error.message}`);
+          serviceStatus[service].available = false;
+          serviceStatus[service].lastError = error.message;
+        }
+      })
+    );
+    
+    // Start server
   app.listen(PORT, () => {
     logger.info(`API Gateway listening on port ${PORT}`);
-  });
+      console.log(`API Gateway running on http://localhost:${PORT}`);
+      
+      // Log all service URLs
+      console.log('\nConfigured Services:');
+      Object.entries(SERVICE_URLS).forEach(([service, url]) => {
+        const status = serviceStatus[service].available 
+          ? 'AVAILABLE' 
+          : 'NOT RESPONDING';
+        console.log(`- ${service.toUpperCase()} Service: ${url} (${status})`);
+      });
+      
+      // Start health check monitoring
+      startHealthChecks();
+    });
+  } catch (error) {
+    logger.error(`Failed to start API Gateway: ${error.message}`);
+    console.error(`\nERROR: ${error.message}`);
+    console.error(`The API Gateway must run on port ${PORT} to work correctly with the frontend.\n`);
+    process.exit(1);
+  }
 }
 
-// Export for Vercel
+// Start the server
+startServer();
+
+// Export for module usage
 module.exports = app; 

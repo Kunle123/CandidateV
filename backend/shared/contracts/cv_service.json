@@ -1,0 +1,850 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CV Management Service API Contracts",
+  "description": "JSON Schema definitions for the CV Management Service API endpoints",
+  "definitions": {
+    "CVMetadata": {
+      "type": "object",
+      "required": ["name", "version", "last_modified"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "CV title"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "CV description"
+        },
+        "is_default": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this is the user's default CV"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "CV version number"
+        },
+        "last_modified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the CV was last modified"
+        }
+      }
+    },
+    "CVTemplate": {
+      "type": "object",
+      "required": ["id", "name", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Template identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Template display name"
+        },
+        "preview_image_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "URL to template preview image"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Template description"
+        },
+        "category": {
+          "type": "string",
+          "description": "Template category"
+        },
+        "style_options": {
+          "type": "object",
+          "description": "Template styling options"
+        },
+        "is_premium": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this is a premium template"
+        }
+      }
+    },
+    "CVEducation": {
+      "type": "object",
+      "required": ["id", "institution", "degree", "field_of_study", "start_date"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Education entry identifier"
+        },
+        "institution": {
+          "type": "string",
+          "description": "Institution name"
+        },
+        "degree": {
+          "type": "string",
+          "description": "Degree title"
+        },
+        "field_of_study": {
+          "type": "string",
+          "description": "Field of study"
+        },
+        "start_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "Start date in YYYY-MM format"
+        },
+        "end_date": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "End date in YYYY-MM format, or null for current education"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Description or additional information"
+        },
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include in CV"
+        }
+      }
+    },
+    "CVExperience": {
+      "type": "object",
+      "required": ["id", "company", "position", "start_date"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Experience entry identifier"
+        },
+        "company": {
+          "type": "string",
+          "description": "Company name"
+        },
+        "position": {
+          "type": "string",
+          "description": "Job position/title"
+        },
+        "start_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "Start date in YYYY-MM format"
+        },
+        "end_date": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "End date in YYYY-MM format, or null for current positions"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Job description and responsibilities"
+        },
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include in CV"
+        }
+      }
+    },
+    "CVSkill": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Skill identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Skill name"
+        },
+        "level": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Skill level (1-5, with 5 being the highest)"
+        },
+        "category": {
+          "type": ["string", "null"],
+          "description": "Skill category"
+        },
+        "years_of_experience": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Years of experience with this skill"
+        },
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include in CV"
+        }
+      }
+    },
+    "CVLanguage": {
+      "type": "object",
+      "required": ["id", "name", "proficiency"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Language identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Language name"
+        },
+        "proficiency": {
+          "type": "string",
+          "enum": ["Basic", "Intermediate", "Advanced", "Fluent", "Native"],
+          "description": "Language proficiency level"
+        },
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include in CV"
+        }
+      }
+    },
+    "CVProject": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Project identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Project name"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Project description"
+        },
+        "url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "Project URL"
+        },
+        "start_date": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "Start date in YYYY-MM format"
+        },
+        "end_date": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "End date in YYYY-MM format"
+        },
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include in CV"
+        }
+      }
+    },
+    "CVCertification": {
+      "type": "object",
+      "required": ["id", "name", "issuer", "date_issued"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Certification identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Certification name"
+        },
+        "issuer": {
+          "type": "string",
+          "description": "Certification issuer"
+        },
+        "date_issued": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "Date issued in YYYY-MM format"
+        },
+        "date_expires": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "description": "Expiration date in YYYY-MM format, if applicable"
+        },
+        "credential_id": {
+          "type": ["string", "null"],
+          "description": "Credential identifier"
+        },
+        "url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "Certification URL"
+        },
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include in CV"
+        }
+      }
+    },
+    "CVReference": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Reference identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Reference person's name"
+        },
+        "company": {
+          "type": ["string", "null"],
+          "description": "Reference person's company"
+        },
+        "position": {
+          "type": ["string", "null"],
+          "description": "Reference person's position"
+        },
+        "email": {
+          "type": ["string", "null"],
+          "format": "email",
+          "description": "Reference person's email"
+        },
+        "phone": {
+          "type": ["string", "null"],
+          "description": "Reference person's phone number"
+        },
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include in CV"
+        }
+      }
+    },
+    "CVContent": {
+      "type": "object",
+      "required": ["template_id"],
+      "properties": {
+        "template_id": {
+          "type": "string",
+          "description": "Template identifier"
+        },
+        "style_options": {
+          "type": "object",
+          "default": {},
+          "description": "CV style customization options"
+        },
+        "personal_info": {
+          "type": "object",
+          "default": {},
+          "description": "Personal information section"
+        },
+        "summary": {
+          "type": ["string", "null"],
+          "description": "CV summary or objective"
+        },
+        "experiences": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVExperience" },
+          "default": [],
+          "description": "Work experience entries"
+        },
+        "education": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVEducation" },
+          "default": [],
+          "description": "Education entries"
+        },
+        "skills": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVSkill" },
+          "default": [],
+          "description": "Skills entries"
+        },
+        "languages": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVLanguage" },
+          "default": [],
+          "description": "Language entries"
+        },
+        "projects": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVProject" },
+          "default": [],
+          "description": "Project entries"
+        },
+        "certifications": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVCertification" },
+          "default": [],
+          "description": "Certification entries"
+        },
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVReference" },
+          "default": [],
+          "description": "Reference entries"
+        },
+        "custom_sections": {
+          "type": "object",
+          "default": {},
+          "description": "Custom CV sections"
+        }
+      }
+    },
+    "CV": {
+      "type": "object",
+      "required": ["id", "user_id", "metadata", "content", "created_at", "updated_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "CV unique identifier"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Owner user ID"
+        },
+        "metadata": {
+          "$ref": "#/definitions/CVMetadata",
+          "description": "CV metadata"
+        },
+        "content": {
+          "$ref": "#/definitions/CVContent",
+          "description": "CV content"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      }
+    },
+    "CVCreate": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "CV title"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "CV description"
+        },
+        "is_default": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this should be the user's default CV"
+        },
+        "template_id": {
+          "type": "string",
+          "default": "default",
+          "description": "Template identifier"
+        },
+        "base_cv_id": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "description": "ID of an existing CV to copy content from"
+        }
+      }
+    },
+    "CVUpdateMetadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": ["string", "null"],
+          "description": "CV title"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "CV description"
+        },
+        "is_default": {
+          "type": ["boolean", "null"],
+          "description": "Whether this should be the user's default CV"
+        }
+      }
+    },
+    "CVUpdateContent": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "type": ["string", "null"],
+          "description": "Template identifier"
+        },
+        "style_options": {
+          "type": ["object", "null"],
+          "description": "CV style customization options"
+        },
+        "personal_info": {
+          "type": ["object", "null"],
+          "description": "Personal information section"
+        },
+        "summary": {
+          "type": ["string", "null"],
+          "description": "CV summary or objective"
+        },
+        "experiences": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/CVExperience" },
+          "description": "Work experience entries"
+        },
+        "education": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/CVEducation" },
+          "description": "Education entries"
+        },
+        "skills": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/CVSkill" },
+          "description": "Skills entries"
+        },
+        "languages": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/CVLanguage" },
+          "description": "Language entries"
+        },
+        "projects": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/CVProject" },
+          "description": "Project entries"
+        },
+        "certifications": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/CVCertification" },
+          "description": "Certification entries"
+        },
+        "references": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/CVReference" },
+          "description": "Reference entries"
+        },
+        "custom_sections": {
+          "type": ["object", "null"],
+          "description": "Custom CV sections"
+        }
+      }
+    },
+    "CVVersionSummary": {
+      "type": "object",
+      "required": ["id", "cv_id", "created_at", "created_by"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Version identifier"
+        },
+        "cv_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "CV identifier"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Version creation timestamp"
+        },
+        "created_by": {
+          "type": "string",
+          "format": "uuid",
+          "description": "User who created the version"
+        }
+      }
+    },
+    "ShareResponse": {
+      "type": "object",
+      "required": ["share_url", "expires_at"],
+      "properties": {
+        "share_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Public sharing URL"
+        },
+        "expires_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the share link expires"
+        }
+      }
+    },
+    "ShareRequest": {
+      "type": "object",
+      "properties": {
+        "expires_in_days": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "default": 7,
+          "description": "Number of days until the share link expires"
+        }
+      }
+    },
+    "CVListResponse": {
+      "type": "object",
+      "required": ["items", "total", "page", "limit"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "last_modified", "created_at"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "CV unique identifier"
+              },
+              "title": {
+                "type": "string",
+                "description": "CV title"
+              },
+              "template_id": {
+                "type": "string",
+                "description": "Template identifier"
+              },
+              "last_modified": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Last modification timestamp"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Creation timestamp"
+              }
+            }
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of CVs"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current page number"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of items per page"
+        }
+      }
+    },
+    "TemplateListResponse": {
+      "type": "object",
+      "required": ["items", "total", "page", "limit"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVTemplate" }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of templates"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current page number"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of items per page"
+        }
+      }
+    },
+    "VersionListResponse": {
+      "type": "object",
+      "required": ["items", "total", "page", "limit"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CVVersionSummary" }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of versions"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current page number"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of items per page"
+        }
+      }
+    },
+    "HealthResponse": {
+      "type": "object",
+      "required": ["status", "timestamp", "version", "database_connection"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["healthy", "unhealthy"],
+          "description": "Service health status"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Current timestamp"
+        },
+        "version": {
+          "type": "string",
+          "description": "Service version"
+        },
+        "database_connection": {
+          "type": "string",
+          "enum": ["ok", "error"],
+          "description": "Database connection status"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "required": ["status", "message"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["error"],
+          "description": "Error status"
+        },
+        "message": {
+          "type": "string",
+          "description": "Error message"
+        },
+        "code": {
+          "type": ["string", "null"],
+          "description": "Error code"
+        },
+        "requestId": {
+          "type": ["string", "null"],
+          "description": "Request ID for tracing"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/cv": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/CVListResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "post": {
+        "requestBody": { "$ref": "#/definitions/CVCreate" },
+        "responses": {
+          "201": { "$ref": "#/definitions/CV" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/{cv_id}": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/CV" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      },
+      "delete": {
+        "responses": {
+          "204": {},
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/{cv_id}/metadata": {
+      "put": {
+        "requestBody": { "$ref": "#/definitions/CVUpdateMetadata" },
+        "responses": {
+          "200": { "$ref": "#/definitions/CV" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/{cv_id}/content": {
+      "put": {
+        "requestBody": { "$ref": "#/definitions/CVUpdateContent" },
+        "responses": {
+          "200": { "$ref": "#/definitions/CV" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/{cv_id}/duplicate": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/CVCreate" },
+        "responses": {
+          "201": { "$ref": "#/definitions/CV" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/{cv_id}/versions": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/VersionListResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/{cv_id}/share": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/ShareRequest" },
+        "responses": {
+          "200": { "$ref": "#/definitions/ShareResponse" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/templates": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/TemplateListResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/cv/templates/{template_id}": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/CVTemplate" },
+          "401": { "$ref": "#/definitions/ErrorResponse" },
+          "404": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/HealthResponse" }
+        }
+      }
+    }
+  }
+} 

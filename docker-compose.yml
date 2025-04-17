@@ -1,0 +1,192 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api_gateway:
+    build: ./backend/api_gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://auth_service:8001
+      - USER_SERVICE_URL=http://user_service:8002
+      - CV_SERVICE_URL=http://cv_service:8003
+      - AI_SERVICE_URL=http://ai_service:8004
+      - PAYMENT_SERVICE_URL=http://payment_service:8005
+      - CORS_ORIGINS=http://localhost:3000,https://candidatev.vercel.app
+    depends_on:
+      - auth_service
+      - user_service
+      - cv_service
+      - ai_service
+      - payment_service
+    restart: always
+
+  # Authentication Service
+  auth_service:
+    build: ./backend/auth_service
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@auth_db:5432/auth_db
+      - JWT_SECRET=your-secure-jwt-secret
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRATION=86400
+      - REDIS_URL=redis://redis_cache:6379/0
+      - CORS_ORIGINS=http://localhost:3000,https://candidatev.vercel.app
+    depends_on:
+      - auth_db
+      - redis_cache
+    restart: always
+
+  # User Service
+  user_service:
+    build: ./backend/user_service
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@user_db:5432/user_db
+      - JWT_SECRET=your-secure-jwt-secret
+      - JWT_ALGORITHM=HS256
+      - AUTH_SERVICE_URL=http://auth_service:8001
+      - CORS_ORIGINS=http://localhost:3000,https://candidatev.vercel.app
+    depends_on:
+      - user_db
+      - auth_service
+    restart: always
+
+  # CV Service
+  cv_service:
+    build: ./backend/cv_service
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@cv_db:5432/cv_db
+      - JWT_SECRET=your-secure-jwt-secret
+      - JWT_ALGORITHM=HS256
+      - STORAGE_TYPE=filesystem
+      - STORAGE_PATH=/app/storage
+      - CORS_ORIGINS=http://localhost:3000,https://candidatev.vercel.app
+    volumes:
+      - cv_storage:/app/storage
+    depends_on:
+      - cv_db
+    restart: always
+
+  # AI Service
+  ai_service:
+    build: ./backend/ai_service
+    ports:
+      - "8004:8004"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgres://postgres:postgres@ai_db:5432/ai_db
+      - CV_SERVICE_URL=http://cv_service:8003
+      - JWT_SECRET=your-secure-jwt-secret
+      - JWT_ALGORITHM=HS256
+      - CORS_ORIGINS=http://localhost:3000,https://candidatev.vercel.app
+    depends_on:
+      - ai_db
+      - cv_service
+    restart: always
+
+  # Payment Service
+  payment_service:
+    build: ./backend/payment_service
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@payment_db:5432/payment_db
+      - STRIPE_API_KEY=${STRIPE_API_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - JWT_SECRET=your-secure-jwt-secret
+      - JWT_ALGORITHM=HS256
+      - USER_SERVICE_URL=http://user_service:8002
+      - CORS_ORIGINS=http://localhost:3000,https://candidatev.vercel.app
+    depends_on:
+      - payment_db
+      - user_service
+    restart: always
+
+  # Authentication Database
+  auth_db:
+    image: postgres:14-alpine
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auth_db
+    ports:
+      - "5432:5432"
+    restart: always
+
+  # User Database
+  user_db:
+    image: postgres:14-alpine
+    volumes:
+      - user_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=user_db
+    ports:
+      - "5433:5432"
+    restart: always
+
+  # CV Database
+  cv_db:
+    image: postgres:14-alpine
+    volumes:
+      - cv_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=cv_db
+    ports:
+      - "5434:5432"
+    restart: always
+
+  # AI Database
+  ai_db:
+    image: postgres:14-alpine
+    volumes:
+      - ai_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ai_db
+    ports:
+      - "5435:5432"
+    restart: always
+
+  # Payment Database
+  payment_db:
+    image: postgres:14-alpine
+    volumes:
+      - payment_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=payment_db
+    ports:
+      - "5436:5432"
+    restart: always
+
+  # Redis Cache
+  redis_cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+
+volumes:
+  auth_data:
+  user_data:
+  cv_data:
+  ai_data:
+  payment_data:
+  redis_data:
+  cv_storage: 

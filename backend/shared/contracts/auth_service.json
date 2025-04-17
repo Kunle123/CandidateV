@@ -1,0 +1,258 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Authentication Service API Contracts",
+  "description": "JSON Schema definitions for the Authentication Service API endpoints",
+  "definitions": {
+    "UserCreate": {
+      "type": "object",
+      "required": ["email", "password", "name"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8,
+          "description": "User's password"
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "required": ["id", "email", "name", "created_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "User's unique identifier"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address"
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the user was created"
+        }
+      }
+    },
+    "LoginRequest": {
+      "type": "object",
+      "required": ["email", "password"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address"
+        },
+        "password": {
+          "type": "string",
+          "description": "User's password"
+        }
+      }
+    },
+    "TokenResponse": {
+      "type": "object",
+      "required": ["access_token", "refresh_token", "token_type", "expires_in"],
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "description": "JWT access token"
+        },
+        "refresh_token": {
+          "type": "string",
+          "description": "JWT refresh token"
+        },
+        "token_type": {
+          "type": "string",
+          "enum": ["bearer"],
+          "description": "Type of token"
+        },
+        "expires_in": {
+          "type": "integer",
+          "description": "Token expiration in seconds"
+        }
+      }
+    },
+    "RefreshRequest": {
+      "type": "object",
+      "required": ["refresh_token"],
+      "properties": {
+        "refresh_token": {
+          "type": "string",
+          "description": "JWT refresh token"
+        }
+      }
+    },
+    "LogoutRequest": {
+      "type": "object",
+      "required": ["refresh_token"],
+      "properties": {
+        "refresh_token": {
+          "type": "string",
+          "description": "JWT refresh token to invalidate"
+        }
+      }
+    },
+    "MessageResponse": {
+      "type": "object",
+      "required": ["message"],
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Response message"
+        }
+      }
+    },
+    "HealthResponse": {
+      "type": "object",
+      "required": ["status", "timestamp", "version", "database_connection"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["healthy", "unhealthy"],
+          "description": "Service health status"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Current timestamp"
+        },
+        "version": {
+          "type": "string",
+          "description": "Service version"
+        },
+        "database_connection": {
+          "type": "string",
+          "enum": ["ok", "error"],
+          "description": "Database connection status"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "required": ["status", "message"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["error"],
+          "description": "Error status"
+        },
+        "message": {
+          "type": "string",
+          "description": "Error message"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request ID for tracing"
+        }
+      }
+    },
+    "ForgotPasswordRequest": {
+      "type": "object",
+      "required": ["email"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address to send reset token to"
+        }
+      }
+    },
+    "ResetPasswordRequest": {
+      "type": "object",
+      "required": ["token", "new_password"],
+      "properties": {
+        "token": {
+          "type": "string",
+          "description": "Password reset token received via email"
+        },
+        "new_password": {
+          "type": "string",
+          "minLength": 8,
+          "description": "New password to set"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/UserCreate" },
+        "responses": {
+          "201": { "$ref": "#/definitions/UserResponse" },
+          "400": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/LoginRequest" },
+        "responses": {
+          "200": { "$ref": "#/definitions/TokenResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/RefreshRequest" },
+        "responses": {
+          "200": { "$ref": "#/definitions/TokenResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/LogoutRequest" },
+        "responses": {
+          "200": { "$ref": "#/definitions/MessageResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/ForgotPasswordRequest" },
+        "responses": {
+          "200": { "$ref": "#/definitions/MessageResponse" },
+          "400": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "requestBody": { "$ref": "#/definitions/ResetPasswordRequest" },
+        "responses": {
+          "200": { "$ref": "#/definitions/MessageResponse" },
+          "400": { "$ref": "#/definitions/ErrorResponse" },
+          "401": { "$ref": "#/definitions/ErrorResponse" }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "responses": {
+          "200": { "$ref": "#/definitions/HealthResponse" }
+        }
+      }
+    }
+  }
+} 

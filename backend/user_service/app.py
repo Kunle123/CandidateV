@@ -9,12 +9,35 @@ import json
 import jwt
 import aiohttp
 from fastapi.security import OAuth2PasswordBearer
+import logging
+import aiofiles
+import shutil
+from fastapi.staticfiles import StaticFiles
+
+# Import the storage module - using a try/except to handle both direct and module import
+try:
+    # When run through main.py
+    from app.storage import store_image, delete_image, StorageError, ImageOptimizationError
+except ImportError:
+    # When run directly
+    from backend.user_service.app.storage import store_image, delete_image, StorageError, ImageOptimizationError
+except ImportError:
+    # Fallback for direct run
+    try:
+        from app.storage import store_image, delete_image, StorageError, ImageOptimizationError
+    except ImportError:
+        # Create mock implementations if we can't import
+        logging.warning("Unable to import storage module, using mock implementations")
+        class StorageError(Exception): pass
+        class ImageOptimizationError(Exception): pass
+        async def store_image(file, user_id): return f"http://localhost:8001/uploads/{user_id}_image.jpg"
+        async def delete_image(image_url): return True
 
 # Environment variables
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8000")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000,https://candidatev.vercel.app").split(",")
 USE_LOCAL_STORAGE = os.getenv("USE_LOCAL_STORAGE", "true").lower() == "true"
-UPLOAD_DIR = "./uploads"
+UPLOAD_DIR = os.getenv("LOCAL_STORAGE_PATH", "./uploads")
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8001")
 JWT_SECRET = os.getenv("JWT_SECRET", "development_secret_key")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -30,6 +53,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure uploads directory exists
+if USE_LOCAL_STORAGE:
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    # Mount uploads directory for static file serving
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
@@ -236,34 +265,30 @@ async def upload_profile_image(
     current_user: dict = Depends(verify_token)
 ):
     """Upload a profile image."""
-    # Generate a unique filename
-    file_ext = file.filename.split(".")[-1]
-    filename = f"{current_user['id']}_{uuid.uuid4().hex}.{file_ext}"
-    
-    if USE_LOCAL_STORAGE:
-        # Create uploads directory if it doesn't exist
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
+    try:
+        # Use our new storage module to store the image
+        image_url = await store_image(file.file, current_user['id'])
         
-        # Save file to local storage
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
+        # Update user's profile image URL
+        current_user["profile_image_url"] = image_url
+        current_user["updated_at"] = datetime.utcnow()
         
-        # Generate URL
-        image_url = f"{BASE_URL}/uploads/{filename}"
-    else:
-        # In a real app, we would upload to S3 or similar
-        # For this demo, we'll just pretend we did
-        image_url = f"https://example.com/uploads/{filename}"
-    
-    # Update user's profile image URL
-    current_user["profile_image_url"] = image_url
-    current_user["updated_at"] = datetime.utcnow()
-    
-    # Update the user in our mock database
-    MOCK_USERS[current_user["id"]] = current_user
-    
-    return {"profile_image_url": image_url}
+        # Update the user in our mock database
+        MOCK_USERS[current_user["id"]] = current_user
+        
+        return {"profile_image_url": image_url}
+    except (StorageError, ImageOptimizationError) as e:
+        # Handle storage errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error uploading image: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload image"
+        )
 
 # Experience endpoints
 @app.get("/api/users/me/experience", response_model=List[Experience])

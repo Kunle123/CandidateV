@@ -1,0 +1,73 @@
+{
+  "name": "candidatev",
+  "version": "1.0.0",
+  "description": "AI-powered CV optimization and job application platform",
+  "private": true,
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "workspaces": [
+    "frontend",
+    "backend/api_gateway"
+  ],
+  "scripts": {
+    "start": "npm run start:all",
+    "start:all": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "concurrently \"npm run start:api\" \"npm run start:services\"",
+    "start:api": "cd backend/api_gateway && npm run start",
+    "start:services": "concurrently \"npm run start:auth\" \"npm run start:user\" \"npm run start:cv\" \"npm run start:ai\" \"npm run start:payment\"",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:auth": "cd backend/auth_service && python main.py",
+    "start:user": "cd backend/user_service && python main.py",
+    "start:cv": "cd backend/cv_service && python main.py",
+    "start:ai": "cd backend/ai_service && python main.py",
+    "start:payment": "cd backend/payment_service && python main.py",
+    "deploy": "npm run deploy:railway && npm run deploy:vercel",
+    "deploy:railway": "powershell -File .\\deploy-to-railway.ps1",
+    "deploy:railway:unix": "bash ./deploy-to-railway.sh",
+    "deploy:vercel": "cd frontend && vercel --prod",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "concurrently \"npm run test:auth\" \"npm run test:user\" \"npm run test:cv\" \"npm run test:ai\" \"npm run test:payment\"",
+    "test:frontend": "cd frontend && npm run test",
+    "test:auth": "cd backend/auth_service && pytest",
+    "test:user": "cd backend/user_service && pytest",
+    "test:cv": "cd backend/cv_service && pytest",
+    "test:ai": "cd backend/ai_service && pytest",
+    "test:payment": "cd backend/payment_service && pytest",
+    "install:backend": "npm run install:api && npm run install:python",
+    "install:api": "cd backend/api_gateway && npm install",
+    "install:python": "concurrently \"npm run install:auth\" \"npm run install:user\" \"npm run install:cv\" \"npm run install:ai\" \"npm run install:payment\"",
+    "install:auth": "cd backend/auth_service && pip install -r requirements.txt",
+    "install:user": "cd backend/user_service && pip install -r requirements.txt",
+    "install:cv": "cd backend/cv_service && pip install -r requirements.txt",
+    "install:ai": "cd backend/ai_service && pip install -r requirements.txt",
+    "install:payment": "cd backend/payment_service && pip install -r requirements.txt",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm install && npm run install:backend && npm run install:frontend",
+    "clean": "rimraf node_modules */*/node_modules",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/username/candidatev.git"
+  },
+  "keywords": [
+    "cv",
+    "resume",
+    "ai",
+    "job-search",
+    "career"
+  ],
+  "author": "CandidateV Team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "concurrently": "^7.6.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.0.3",
+    "rimraf": "^4.1.2"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.4"
+  }
+} 

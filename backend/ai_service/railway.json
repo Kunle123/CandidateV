@@ -1,0 +1,25 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -r requirements.txt && python -m spacy download en_core_web_sm"
+  },
+  "deploy": {
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3,
+    "startCommand": "python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+  },
+  "healthcheck": {
+    "path": "/api/health",
+    "interval": 30,
+    "timeout": 5,
+    "retries": 3
+  },
+  "environment": {
+    "variables": {
+      "CV_SERVICE_URL": "https://candidatev-cv-service.up.railway.app"
+    },
+    "secrets": [
+      "OPENAI_API_KEY"
+    ]
+  }
+} 
