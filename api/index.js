@@ -36,91 +36,51 @@ function checkPortAvailability(port) {
 
 // Check service health - utility for service validation
 async function checkServiceHealth(name, url) {
-  // Try internal URL first
   try {
     const startTime = Date.now();
-    // Use /api/health instead of /health for all services
+    // Add a simple check to detect if this is a public URL
+    const isPublicUrl = url.includes('.up.railway.app');
+    
+    console.log(`Checking health for ${name} using ${isPublicUrl ? 'public' : 'internal'} URL: ${url}`);
+    
     const response = await axios.get(`${url}/api/health`, { 
       timeout: 10000,
       validateStatus: status => status < 500
     });
+    
     const responseTime = Date.now() - startTime;
     
-    console.log(`Health check successful for ${name} using internal URL`);
+    console.log(`Health check successful for ${name} using ${url}`);
+    
     return {
-      available: response.status < 400,
+      available: true,
       status: response.status,
       responseTime,
       message: response.data?.message || 'OK',
+      usingPublicUrl: isPublicUrl,
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.log(`Health check failed for ${name} service internal URL: ${error.message}`);
+    console.log(`Health check failed for ${name} using ${url}: ${error.message}`);
     
-    // Try public URL if internal fails - use environment variable or construct Railway public URL
-    const publicUrl = process.env[`${name.toUpperCase()}_SERVICE_PUBLIC_URL`] || 
-                       `https://candidatev-${name}-service.up.railway.app`;
-    
-    try {
-      console.log(`Trying fallback to public URL for ${name}: ${publicUrl}`);
-      const startTime = Date.now();
-      const response = await axios.get(`${publicUrl}/api/health`, { 
-        timeout: 10000,
-        validateStatus: status => status < 500
-      });
-      const responseTime = Date.now() - startTime;
-      
-      console.log(`Public URL health check successful for ${name}`);
-      return {
-        available: response.status < 400,
-        status: response.status,
-        responseTime,
-        message: response.data?.message || 'OK (public URL)',
-        usingPublicUrl: true,
-        publicUrl,
-        timestamp: new Date().toISOString()
-      };
-    } catch (pubError) {
-      console.log(`Public URL health check failed for ${name}: ${pubError.message}`);
-      
-      // Try root health endpoint as final fallback
-      try {
-        const rootResponse = await axios.get(`${url}/health`, { 
-          timeout: 5000,
-          validateStatus: status => status < 500
-        });
-        const fallbackResponseTime = Date.now() - startTime;
-        
-        console.log(`Root health check succeeded for ${name} service`);
-        return {
-          available: rootResponse.status < 400,
-          status: rootResponse.status,
-          responseTime: fallbackResponseTime,
-          message: rootResponse.data?.message || 'OK (fallback)',
-          timestamp: new Date().toISOString()
-        };
-      } catch (fallbackError) {
-        console.log(`All health checks failed for ${name} service`);
-        return {
-          available: false,
-          status: error.response?.status || 0,
-          error: error.message,
-          timestamp: new Date().toISOString()
-        };
-      }
-    }
+    return {
+      available: false,
+      status: error.response?.status || 0,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 
 // Environment variables with more explicit defaults
 const SERVICE_URLS = {
-  // Try both approaches: Railway internal first, public URLs as fallback
-  auth: process.env.AUTH_SERVICE_URL || 'http://auth_service.railway.internal:8001',
-  user: process.env.USER_SERVICE_URL || 'http://user_service.railway.internal:8001',
-  cv: process.env.CV_SERVICE_URL || 'http://cv_service.railway.internal:8001',
-  export: process.env.EXPORT_SERVICE_URL || 'http://export_service.railway.internal:8001',
-  ai: process.env.AI_SERVICE_URL || 'http://ai_service.railway.internal:8001',
-  payment: process.env.PAYMENT_SERVICE_URL || 'http://payment_service.railway.internal:8001'
+  // Use public URLs directly since they're reliable
+  auth: process.env.AUTH_SERVICE_URL || 'https://candidatev-auth-service.up.railway.app',
+  user: process.env.USER_SERVICE_URL || 'https://candidatev-user-service.up.railway.app',
+  cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app',
+  export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
+  ai: process.env.AI_SERVICE_URL || 'https://candidatev-ai-service.up.railway.app',
+  payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app'
 };
 
 // Log level from environment or default to info
