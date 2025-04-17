@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { apiService } from './apiClient';
 import authService from './authService';
 import userService from './userService';
 import cvService from './cvService';
@@ -10,6 +11,7 @@ import * as utils from './utils';
 // Export all API services
 export {
   apiClient,
+  apiService,
   authService,
   userService,
   cvService,
@@ -22,6 +24,7 @@ export {
 // Export default as an object with all services
 export default {
   apiClient,
+  apiService,
   auth: authService,
   user: userService,
   cv: cvService,
