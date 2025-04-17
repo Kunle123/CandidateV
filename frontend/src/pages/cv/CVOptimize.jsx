@@ -52,8 +52,7 @@ import {
 } from '@chakra-ui/react';
 import { FaArrowLeft, FaArrowRight, FaFileAlt, FaMagic, FaSearch, FaCheck, FaClone, FaDownload, FaUpload, FaFilePdf, FaFileWord, FaChevronDown, FaCopy } from 'react-icons/fa';
 import { ChevronDownIcon } from '@chakra-ui/icons';
-import axios from 'axios';
-import { cvService } from '../../api';
+import { cvService, apiService } from '../../api';
 
 const CVOptimize = () => {
   const { id } = useParams();
@@ -206,7 +205,7 @@ const CVOptimize = () => {
     setError(null);
     
     try {
-      const response = await axios.post('/api/ai/job-match/analyze', {
+      const response = await apiService.post('/ai/job-match/analyze', {
         cv_id: selectedCVId,
         job_description: jobDescription,
         detailed: true
@@ -316,7 +315,7 @@ const CVOptimize = () => {
       }
       
       // Call the AI service to optimize the CV
-      const response = await axios.post('/api/ai/optimize', {
+      const response = await apiService.post('/ai/optimize', {
         cv_id: selectedCVId,
         targets: targets,
         job_description: jobDescription,
@@ -380,14 +379,13 @@ const CVOptimize = () => {
     setError(null);
     
     try {
-      const response = await axios.post('/api/ai/cover-letter', {
+      const response = await apiService.post('/ai/cover-letter', {
         cv_id: selectedCVId,
         job_description: jobDescription,
         user_comments: userComments,
         company_name: companyName,
         recipient_name: '',
         position_title: positionTitle,
-        tone: 'professional',
       });
       
       setCoverLetter(response.data);
