@@ -38,7 +38,8 @@ function checkPortAvailability(port) {
 async function checkServiceHealth(name, url) {
   try {
     const startTime = Date.now();
-    const response = await axios.get(`${url}/health`, { 
+    // Use /api/health instead of /health for all services
+    const response = await axios.get(`${url}/api/health`, { 
       timeout: 10000,  // Increase timeout from 2000ms to 10 seconds
       validateStatus: status => status < 500 // Accept any non-500 status
     });
@@ -53,23 +54,42 @@ async function checkServiceHealth(name, url) {
     };
   } catch (error) {
     console.log(`Health check failed for ${name} service: ${error.message}`);
-    return {
-      available: false,
-      status: error.response?.status || 0,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    };
+    // Try the root health endpoint as fallback
+    try {
+      const rootResponse = await axios.get(`${url}/health`, { 
+        timeout: 5000,
+        validateStatus: status => status < 500
+      });
+      const fallbackResponseTime = Date.now() - startTime;
+      
+      console.log(`Fallback health check succeeded for ${name} service using /health`);
+      return {
+        available: rootResponse.status < 400,
+        status: rootResponse.status,
+        responseTime: fallbackResponseTime,
+        message: rootResponse.data?.message || 'OK (fallback)',
+        timestamp: new Date().toISOString()
+      };
+    } catch (fallbackError) {
+      console.log(`Fallback health check also failed for ${name} service: ${fallbackError.message}`);
+      return {
+        available: false,
+        status: error.response?.status || 0,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 }
 
 // Environment variables with more explicit defaults
 const SERVICE_URLS = {
-  auth: process.env.AUTH_SERVICE_URL || 'http://localhost:8000',
-  user: process.env.USER_SERVICE_URL || 'http://localhost:8001',
-  cv: process.env.CV_SERVICE_URL || 'http://localhost:8002',
-  export: process.env.EXPORT_SERVICE_URL || 'http://localhost:8003',
-  ai: process.env.AI_SERVICE_URL || 'http://localhost:8004',
-  payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:8005'
+  auth: process.env.AUTH_SERVICE_URL || 'http://candidatev-auth-service.railway.internal:8001',
+  user: process.env.USER_SERVICE_URL || 'http://candidatev-user-service.railway.internal:8001',
+  cv: process.env.CV_SERVICE_URL || 'http://candidatev-cv-service.railway.internal:8001',
+  export: process.env.EXPORT_SERVICE_URL || 'http://candidatev-export-service.railway.internal:8001',
+  ai: process.env.AI_SERVICE_URL || 'http://candidatev-ai-service.railway.internal:8001',
+  payment: process.env.PAYMENT_SERVICE_URL || 'http://candidatev-payment-service.railway.internal:8001'
 };
 
 // Log level from environment or default to info
