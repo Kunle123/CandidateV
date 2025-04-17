@@ -201,6 +201,19 @@ app.post('/api/debug/echo', (req, res) => {
   }
 });
 
+// Force real service connection with a specific header
+app.use((req, res, next) => {
+  // Check for a special header that forces use of the real service
+  if (req.headers['x-use-real-service'] === 'true' || req.query.use_real_service === 'true') {
+    const servicePath = req.path.split('/')[2]; // Extract service name from path
+    if (servicePath && SERVICE_URLS[servicePath]) {
+      console.log(`Forcing use of real service for ${req.method} ${req.originalUrl}`);
+      return createProxy(servicePath, SERVICE_URLS[servicePath])(req, res, next);
+    }
+  }
+  next();
+});
+
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
   res.json({
@@ -458,15 +471,58 @@ app.use('/api/auth', (req, res, next) => {
 
 app.use('/api/users', createProxy('user', SERVICE_URLS.user));
 
-// Modified CV proxy to prioritize local implementations
+// Modified CV proxy to prioritize local implementations except for AI optimization
 app.use('/api/cv', (req, res, next) => {
-  // Our local mock implementations should have already handled CV routes
-  // This is a fallback if we need to proxy to the actual service
+  // Pass through AI optimization requests to the real service
+  if (req.path.includes('/optimize') || req.path.includes('/ai') || req.originalUrl.includes('/optimize') || req.originalUrl.includes('/ai')) {
+    console.log('Forwarding AI optimization request to the real CV service:', req.originalUrl);
+    return createProxy('cv', SERVICE_URLS.cv)(req, res, next);
+  }
+  
+  // Extract the path parts
+  const pathParts = req.path.split('/').filter(Boolean);
+  const isRootPath = pathParts.length === 0;
+  const hasId = pathParts.length > 0;
+  
+  // For other CV endpoints, use our local mock implementations
+  // Use next('route') only for paths that we've already defined as middleware above
+  if (req.method === 'GET' && isRootPath) {
+    // The root CV endpoint (list CVs) is handled by our mock implementation
+    console.log('Using mock implementation for GET /api/cv');
+    return next('route');
+  } else if (req.method === 'GET' && hasId && !pathParts[0].includes('optimize') && !pathParts[0].includes('ai')) {
+    // The CV detail endpoint is handled by our mock implementation unless it's an optimization request
+    console.log(`Using mock implementation for GET /api/cv/${pathParts[0]}`);
+    return next('route');
+  } else if (req.method === 'POST' && isRootPath) {
+    // The create CV endpoint is handled by our mock implementation
+    console.log('Using mock implementation for POST /api/cv');
+    return next('route');
+  } else if (req.method === 'PUT' && hasId) {
+    // The update CV endpoint is handled by our mock implementation
+    console.log(`Using mock implementation for PUT /api/cv/${pathParts[0]}`);
+    return next('route');
+  } else if (req.method === 'DELETE' && hasId) {
+    // The delete CV endpoint is handled by our mock implementation
+    console.log(`Using mock implementation for DELETE /api/cv/${pathParts[0]}`);
+    return next('route');
+  }
+  
+  // Log the request that's being forwarded
+  console.log(`Forwarding request to real CV service: ${req.method} ${req.originalUrl}`);
+  
+  // For anything else, try the real service
   return createProxy('cv', SERVICE_URLS.cv)(req, res, next);
 });
 
 app.use('/api/export', createProxy('export', SERVICE_URLS.export));
-app.use('/api/ai', createProxy('ai', SERVICE_URLS.ai));
+
+// Modified AI service proxy to always pass through
+app.use('/api/ai', (req, res, next) => {
+  console.log('Forwarding AI service request to real service:', req.originalUrl);
+  return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
+});
+
 app.use('/api/payments', createProxy('payment', SERVICE_URLS.payment));
 
 // Default 404 handler
@@ -479,10 +535,10 @@ app.use((req, res) => {
 });
 
 // Start the server
-  app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Simplified API Gateway running on port ${PORT}`);
-      console.log('\nConfigured Services:');
-      Object.entries(SERVICE_URLS).forEach(([service, url]) => {
+  console.log('\nConfigured Services:');
+  Object.entries(SERVICE_URLS).forEach(([service, url]) => {
     console.log(`- ${service.toUpperCase()} Service: ${url}`);
   });
 });
