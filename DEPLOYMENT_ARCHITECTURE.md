@@ -36,14 +36,6 @@ All API requests follow this pattern:
   - Production (`.env`): Points to Railway API Gateway
   - Development (`.env.development`): Points to local API Gateway
 
-## Vercel Deployment
-
-The Vercel deployment process:
-1. Uses the root `vercel.json` configuration
-2. Runs the build command `cd frontend && npm install && npm run build`
-3. Deploys the output from `frontend/dist`
-4. Sets up rewrites for API requests to Railway
-
 ## Historical Notes
 
 The project previously had a different architecture where:
