@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -29,9 +29,25 @@ import {
   AccordionPanel,
   AccordionIcon,
   Badge,
+  Spinner,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Alert,
+  AlertIcon,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  MenuDivider,
 } from '@chakra-ui/react';
-import { FaArrowLeft, FaPlus, FaTrash, FaSave, FaDownload, FaEye, FaRobot, FaBriefcase, FaMagic, FaKeyboard } from 'react-icons/fa';
-import axios from 'axios';
+import { ChevronDownIcon } from '@chakra-ui/icons';
+import { FaArrowLeft, FaPlus, FaTrash, FaSave, FaDownload, FaEye, FaRobot, FaBriefcase, FaMagic, FaKeyboard, FaMinus, FaCopy } from 'react-icons/fa';
+import { apiService, cvService } from '../../api';
 
 // Import the CVAnalyzer component
 import CVAnalyzer from '../../components/ai/CVAnalyzer';
@@ -613,9 +629,13 @@ const CVEditor = () => {
   const [templateId, setTemplateId] = useState('modern');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [originalCV, setOriginalCV] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const params = useSearchParams()[0];
   
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -625,7 +645,6 @@ const CVEditor = () => {
 
   // Extract template ID and tab from URL
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
     const id = params.get('id');
     const template = params.get('template');
     const tab = params.get('tab');
@@ -636,7 +655,7 @@ const CVEditor = () => {
     
     if (id) {
       setCvId(id);
-      loadCV(id);
+      loadCV();
     }
 
     // Set active tab based on URL parameter
@@ -649,27 +668,65 @@ const CVEditor = () => {
     } else if (tab === 'optimize') {
       setActiveTabIndex(3);
     }
-  }, [location]);
+  }, [params]);
   
-  const loadCV = async (id) => {
+  const loadCV = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await axios.get(`/api/cv/${id}`);
-      if (response.data) {
+      const id = params.get('id');
+      const template = params.get('template');
+      const tab = params.get('tab');
+      
+      // Set active tab if specified in URL
+      if (tab === 'personal') setActiveTabIndex(0);
+      else if (tab === 'experience') setActiveTabIndex(1);
+      else if (tab === 'education') setActiveTabIndex(2);
+      else if (tab === 'skills') setActiveTabIndex(3);
+      else if (tab === 'projects') setActiveTabIndex(4);
+      else if (tab === 'preview') setActiveTabIndex(5); 
+      else if (tab === 'analyze') {
+        setActiveTabIndex(6);
+      }
+      
+      // If we have an ID, load the CV
+      if (id) {
+        // Use cvService instead of direct axios
+        const response = await cvService.getCV(id);
+        
         setCV(response.data);
-        if (response.data.templateId) {
-          setTemplateId(response.data.templateId);
-        }
+        setOriginalCV(JSON.parse(JSON.stringify(response.data)));
+        setHasChanges(false);
+      } 
+      // Otherwise, create a new CV with the selected template
+      else if (template) {
+        setCV({
+          title: 'Untitled CV',
+          template: template,
+          personal: {
+            firstName: '',
+            lastName: '',
+            title: '',
+            email: '',
+            phone: '',
+            location: '',
+            summary: ''
+          },
+          experience: [],
+          education: [],
+          skills: [],
+          projects: [],
+          languages: [],
+          certifications: [],
+          interests: []
+        });
+      } else {
+        // No ID or template, redirect to template selection
+        navigate('/cv');
+        return;
       }
     } catch (error) {
       console.error('Error loading CV:', error);
-      toast({
-        title: 'Error loading CV',
-        description: 'There was a problem loading your CV. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+      setError('Failed to load CV data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -775,47 +832,79 @@ const CVEditor = () => {
   
   // Save CV
   const saveCV = async () => {
+    setSaving(true);
+    setError(null);
+    
     try {
-      setSaving(true);
-      const cvData = {
-        ...cv,
-        templateId,
-      };
-      
-      // Check if we're editing an existing CV
-      const params = new URLSearchParams(location.search);
+      let response;
       const cvId = params.get('id');
       
-      let response;
+      // Use cvService instead of direct axios
       if (cvId) {
-        response = await axios.put(`/api/cv/${cvId}`, cvData);
+        response = await cvService.updateCV(cvId, cv);
       } else {
-        response = await axios.post('/api/cv', cvData);
+        response = await cvService.createCV(cv);
+        // Update URL if this is a new CV
+        navigate(`/cv/editor?id=${response.data.id}`);
       }
+      
+      setOriginalCV(JSON.parse(JSON.stringify(cv)));
+      setHasChanges(false);
       
       toast({
         title: 'CV Saved',
-        description: 'Your CV has been saved successfully.',
+        description: 'Your CV has been saved successfully',
         status: 'success',
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
       });
       
-      // Navigate to the preview page
-      if (response.data && response.data.id) {
-        navigate(`/cv/preview?id=${response.data.id}`);
-      }
+      return response.data.id;
     } catch (error) {
       console.error('Error saving CV:', error);
+      setError('Failed to save CV. Please try again.');
+      
       toast({
-        title: 'Error',
-        description: 'There was a problem saving your CV. Please try again.',
+        title: 'Save Failed',
+        description: 'There was a problem saving your CV',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
+      
+      return null;
     } finally {
       setSaving(false);
+    }
+  };
+  
+  // Delete CV
+  const deleteCV = async () => {
+    try {
+      const cvId = params.get('id');
+      if (!cvId) return;
+      
+      // Use cvService instead of direct axios
+      await cvService.deleteCV(cvId);
+      
+      toast({
+        title: 'CV Deleted',
+        description: 'Your CV has been deleted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      navigate('/cv');
+    } catch (error) {
+      console.error('Error deleting CV:', error);
+      toast({
+        title: 'Delete Failed',
+        description: 'There was a problem deleting your CV',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
   
@@ -844,21 +933,21 @@ const CVEditor = () => {
   return (
     <Container maxW="container.xl" py={5}>
       <HStack mb={5} spacing={4}>
-                <Button 
+        <Button 
           leftIcon={<FaArrowLeft />} 
           onClick={handleBack} 
           variant="ghost"
         >
           Back
-                </Button>
+        </Button>
         <Heading size="lg">
           {cv.personal.firstName ? `${cv.personal.firstName}'s CV` : 'New CV'}
         </Heading>
         <Badge colorScheme="blue" fontSize="0.8em" p={2}>
           {templateId}
         </Badge>
-              </HStack>
-              
+      </HStack>
+      
       <Tabs 
         variant="enclosed" 
         colorScheme="blue" 
@@ -867,7 +956,7 @@ const CVEditor = () => {
           setActiveTabIndex(index);
         }}
       >
-                <TabList>
+        <TabList>
           <Tab><HStack><FaKeyboard /><Text>Editor</Text></HStack></Tab>
           <Tab><HStack><FaEye /><Text>Preview</Text></HStack></Tab>
           <Tab><HStack><FaRobot /><Text>AI Analysis</Text></HStack></Tab>
@@ -880,27 +969,27 @@ const CVEditor = () => {
             <Tabs orientation="vertical" variant="line" minHeight="600px">
               <TabList width="200px">
                 <Tab>Personal Information</Tab>
-                  <Tab>Experience</Tab>
+                <Tab>Experience</Tab>
                 <Tab>Education</Tab>
-                  <Tab>Skills</Tab>
+                <Tab>Skills</Tab>
                 <Tab>Languages</Tab>
                 <Tab>Certifications</Tab>
-                </TabList>
+              </TabList>
               <TabPanels flex="1">
-                  <TabPanel>
+                <TabPanel>
                   <PersonalInfoForm 
                     data={cv.personal} 
                     onChange={handlePersonalInfoChange} 
-                    />
-                  </TabPanel>
-                  <TabPanel>
-                    <ExperienceForm 
-                      items={cv.experience} 
-                      onAdd={addExperience} 
-                      onUpdate={updateExperience} 
-                      onRemove={removeExperience}
-                    />
-                  </TabPanel>
+                  />
+                </TabPanel>
+                <TabPanel>
+                  <ExperienceForm 
+                    items={cv.experience} 
+                    onAdd={addExperience} 
+                    onUpdate={updateExperience} 
+                    onRemove={removeExperience}
+                  />
+                </TabPanel>
                 <TabPanel>
                   <EducationForm 
                     items={cv.education} 
@@ -909,14 +998,14 @@ const CVEditor = () => {
                     onRemove={removeEducation}
                   />
                 </TabPanel>
-                  <TabPanel>
-                    <SkillsForm 
-                      items={cv.skills} 
-                      onAdd={addSkill} 
-                      onUpdate={updateSkill} 
-                      onRemove={removeSkill}
-                    />
-                  </TabPanel>
+                <TabPanel>
+                  <SkillsForm 
+                    items={cv.skills} 
+                    onAdd={addSkill} 
+                    onUpdate={updateSkill} 
+                    onRemove={removeSkill}
+                  />
+                </TabPanel>
                 <TabPanel>
                   {/* Languages tab content */}
                   <Text>Language section coming soon</Text>
@@ -925,8 +1014,8 @@ const CVEditor = () => {
                   {/* Certifications tab content */}
                   <Text>Certifications section coming soon</Text>
                 </TabPanel>
-                </TabPanels>
-              </Tabs>
+              </TabPanels>
+            </Tabs>
             <Flex justify="flex-end" mt={5}>
               <Button
                 leftIcon={<FaSave />}
@@ -954,13 +1043,13 @@ const CVEditor = () => {
                 </Button>
               </HStack>
             </Box>
-            </TabPanel>
-            
-            {/* AI Analysis Tab */}
+          </TabPanel>
+          
+          {/* AI Analysis Tab */}
           <TabPanel>
             <CVAnalyzer cv={cv} />
-            </TabPanel>
-            
+          </TabPanel>
+          
           {/* AI Optimization Tab */}
           <TabPanel>
             <CVOptimizer cv={cv} />
@@ -969,10 +1058,10 @@ const CVEditor = () => {
           {/* Job Match Tab */}
           <TabPanel>
             <JobOptimizationPanel cvId={cvId} cvData={cv} />
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-      </Container>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
+    </Container>
   );
 };
 

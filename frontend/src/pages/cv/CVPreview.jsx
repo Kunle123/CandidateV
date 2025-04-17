@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -44,7 +44,8 @@ import {
   FaLink,
   FaCopy,
 } from 'react-icons/fa';
-import axios from 'axios';
+import { ChevronDownIcon } from '@chakra-ui/icons';
+import { apiService, cvService } from '../../api';
 
 // Sample CV template component - In a real app, this would be more sophisticated
 const CVTemplate1 = ({ cv }) => {
@@ -262,31 +263,26 @@ const CVPreview = () => {
   
   const bgColor = useColorModeValue('gray.100', 'gray.900');
   
-  // Load CV data
-  useEffect(() => {
-    const fetchCV = async () => {
-      try {
-        const params = new URLSearchParams(location.search);
-        const cvId = params.get('id');
-        
-        if (!cvId) {
-          setError('No CV ID provided');
-          setLoading(false);
-          return;
-        }
-        
-        const response = await axios.get(`/api/cv/${cvId}`);
-        setCV(response.data);
-      } catch (err) {
-        console.error('Error fetching CV:', err);
-        setError('Failed to load CV. Please try again later.');
-      } finally {
-        setLoading(false);
+  // Get CV data
+  const fetchCV = async () => {
+    setLoading(true);
+    try {
+      const cvId = params.get('id');
+      if (!cvId) {
+        navigate('/cv');
+        return;
       }
-    };
-    
-    fetchCV();
-  }, [location]);
+      
+      // Use cvService instead of direct axios
+      const response = await cvService.getCV(cvId);
+      setCV(response.data);
+    } catch (error) {
+      console.error('Error fetching CV:', error);
+      setError('Failed to load CV data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handle back to editor
   const handleBackToEditor = () => {
@@ -295,39 +291,39 @@ const CVPreview = () => {
     navigate(`/cv/editor?id=${cvId}`);
   };
   
-  // Handle export
-  const handleExport = async (format) => {
+  // Export CV in different formats
+  const exportCV = async (format) => {
+    setExporting(true);
     try {
-      setExporting(true);
-      const params = new URLSearchParams(location.search);
       const cvId = params.get('id');
+      if (!cvId) {
+        return;
+      }
       
-      // In a real app, this would be a proper API call to generate the export
-      const response = await axios.get(`/api/export/cv/${cvId}?format=${format}`, {
-        responseType: 'blob',
+      // Use apiService instead of direct axios
+      const response = await apiService.get(`/export/cv/${cvId}?format=${format}`, {
+        responseType: 'blob'
       });
       
-      // Create a download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `CV_${cv.personal.firstName}_${cv.personal.lastName}.${format}`);
+      link.setAttribute('download', `CV-${cv.title || 'Export'}.${format}`);
       document.body.appendChild(link);
       link.click();
-      link.remove();
       
       toast({
         title: 'Export Successful',
-        description: `Your CV has been exported in ${format.toUpperCase()} format.`,
+        description: `Your CV has been exported as ${format.toUpperCase()}`,
         status: 'success',
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
       });
-    } catch (err) {
-      console.error('Error exporting CV:', err);
+    } catch (error) {
+      console.error('Error exporting CV:', error);
       toast({
         title: 'Export Failed',
-        description: 'There was a problem exporting your CV. Please try again.',
+        description: `Failed to export as ${format.toUpperCase()}. Please try again.`,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -434,13 +430,13 @@ const CVPreview = () => {
                   Export
                 </MenuButton>
                 <MenuList>
-                  <MenuItem icon={<FaFilePdf />} onClick={() => handleExport('pdf')}>
+                  <MenuItem icon={<FaFilePdf />} onClick={() => exportCV('pdf')}>
                     Export as PDF
                   </MenuItem>
-                  <MenuItem icon={<FaFileWord />} onClick={() => handleExport('docx')}>
+                  <MenuItem icon={<FaFileWord />} onClick={() => exportCV('docx')}>
                     Export as Word
                   </MenuItem>
-                  <MenuItem icon={<FaFileCsv />} onClick={() => handleExport('txt')}>
+                  <MenuItem icon={<FaFileCsv />} onClick={() => exportCV('txt')}>
                     Export as Plain Text
                   </MenuItem>
                 </MenuList>

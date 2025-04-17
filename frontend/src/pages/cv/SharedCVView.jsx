@@ -17,6 +17,11 @@ import {
   AlertIcon,
   Badge,
   Tooltip,
+  useToast,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
 } from '@chakra-ui/react';
 import { 
   FaDownload, 
@@ -26,15 +31,21 @@ import {
   FaLinkedin, 
   FaLink,
   FaCopy,
+  FaFileWord,
+  FaShare,
 } from 'react-icons/fa';
-import axios from 'axios';
+import { ChevronDownIcon } from '@chakra-ui/icons';
+import { apiService, cvService } from '../../api';
 
 // Sample shared CV view - simplified display
 const SharedCVView = () => {
+  const { id } = useParams();
+  const toast = useToast();
+  
   const [cv, setCV] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { id } = useParams();
+  const [exporting, setExporting] = useState(false);
   
   const bgColor = useColorModeValue('gray.100', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -50,7 +61,7 @@ const SharedCVView = () => {
           return;
         }
         
-        const response = await axios.get(`/api/cv/shared/${id}`);
+        const response = await apiService.get(`/cv/shared/${id}`);
         setCV(response.data);
       } catch (err) {
         console.error('Error fetching shared CV:', err);
@@ -74,23 +85,40 @@ const SharedCVView = () => {
     window.print();
   };
   
-  // Download CV as PDF
-  const downloadPDF = async () => {
+  // Handle PDF export
+  const handleExport = async (format) => {
+    setExporting(true);
     try {
-      const response = await axios.get(`/api/export/cv/${id}?format=pdf`, {
-        responseType: 'blob',
+      const response = await apiService.get(`/export/cv/${id}?format=${format}`, {
+        responseType: 'blob'
       });
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `CV_${cv.personal.firstName}_${cv.personal.lastName}.pdf`);
+      link.setAttribute('download', `CV_Export.${format}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      
+      toast({
+        title: 'Export Successful',
+        description: `CV has been exported as ${format.toUpperCase()}`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (err) {
-      console.error('Error downloading PDF:', err);
-      alert('Failed to download PDF. Please try again.');
+      console.error('Error exporting CV:', err);
+      toast({
+        title: 'Export Failed',
+        description: 'There was a problem exporting this CV',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
     }
   };
   
@@ -148,7 +176,7 @@ const SharedCVView = () => {
               <IconButton
                 icon={<FaFilePdf />}
                 aria-label="Download PDF"
-                onClick={downloadPDF}
+                onClick={() => handleExport('pdf')}
                 size="sm"
               />
             </Tooltip>
@@ -290,7 +318,7 @@ const SharedCVView = () => {
           className="no-print"
         >
           <HStack spacing={4}>
-            <Button leftIcon={<FaDownload />} colorScheme="blue" onClick={downloadPDF}>
+            <Button leftIcon={<FaDownload />} colorScheme="blue" onClick={() => handleExport('pdf')}>
               Download PDF
             </Button>
             <Button leftIcon={<FaLinkedin />} colorScheme="linkedin" variant="outline">
