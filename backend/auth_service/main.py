@@ -8,7 +8,6 @@ import yaml
 
 # Import app from the right location
 from app import app
-from shared.contracts import add_contract_validation
 
 # Configure logging
 logging.basicConfig(
@@ -20,7 +19,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("auth_service")
 
-# Add contract validation
+# Add contract validation if shared module is available
+try:
+    from shared.contracts import add_contract_validation
+    logger.info("Using shared contract validation module")
+except ImportError:
+    logger.warning("Shared contracts module not found, using fallback implementation")
+    from shared_fallback import add_contract_validation
+
+# Apply contract validation
 add_contract_validation(app, service_name="auth_service", contract_version="1.0.0")
 
 # Load OpenAPI spec from file

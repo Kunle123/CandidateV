@@ -65,4 +65,9 @@ async def shutdown():
 
 @app.get("/")
 async def root():
-    return {"message": "CandidateV Authentication Service"} 
+    return {"message": "CandidateV Authentication Service"}
+
+@app.get("/health")
+async def root_health_check():
+    """Root-level health check endpoint for container health checks"""
+    return {"status": "healthy"} 

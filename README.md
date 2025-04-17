@@ -1,4 +1,6 @@
-# CandidateV Application
+# CandidateV: AI-Powered CV Builder
+
+> **IMPORTANT DEPLOYMENT NOTE**: This project uses a distributed architecture with the frontend deployed on Vercel and backend services on Railway. See `DEPLOYMENT_ARCHITECTURE.md` for detailed information about the current architecture and routing setup.
 
 CandidateV (pronounced "Candidate 5") is a modern web application that helps users create, optimize, and manage professional CVs/resumes with AI assistance. The application follows a microservices architecture with clear separation between frontend and backend components.
 

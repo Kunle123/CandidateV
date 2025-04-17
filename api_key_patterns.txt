@@ -1,0 +1,6 @@
+sk-[A-Za-z0-9]{48}
+OPENAI_API_KEY=[^\s"']+
+regex:(["']?(?:api[_-]?key|api[_-]?secret|access[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|app[_-]?secret|jwt[_-]?secret|encryption[_-]?key)['"']?\s*(?::|=>|=)\s*['"])[a-zA-Z0-9_\-\.]{10,}(['"])
+regex:(["']?(?:sk_live_|pk_live_)[a-zA-Z0-9]{10,}['"])
+regex:(['"]?https?:\/\/[a-zA-Z0-9]+:[a-zA-Z0-9]+@[a-zA-Z0-9]+\.[a-zA-Z0-9]+['"]?)
+regex:(['"][a-zA-Z0-9]{32,}['"]) 
