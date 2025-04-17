@@ -38,18 +38,37 @@ try:
     logger.info("Contract validation added")
 except ImportError:
     logger.warning("Contract validation not available - running without validation")
+    try:
+        # Try to use our local fallback implementation
+        from shared_fallback import add_contract_validation
+        add_contract_validation(app, service_name="user_service", contract_version="1.0.0")
+        logger.info("Using fallback contract validation")
+    except ImportError:
+        logger.warning("Fallback contract validation not available - running without validation")
 
 # Load OpenAPI spec from file (if available)
 @app.on_event("startup")
 async def startup_event():
     try:
         # Generate OpenAPI schema from contract
-        from shared.contracts.validator import ContractValidator
-        validator = ContractValidator("user_service")
-        openapi_schema = validator.generate_openapi_schema()
-        if openapi_schema:
-            app.openapi_schema = openapi_schema
-            logger.info("Generated OpenAPI schema from contract")
+        try:
+            from shared.contracts.validator import ContractValidator
+            validator = ContractValidator("user_service")
+            openapi_schema = validator.generate_openapi_schema()
+            if openapi_schema:
+                app.openapi_schema = openapi_schema
+                logger.info("Generated OpenAPI schema from contract")
+        except ImportError:
+            # Try to use fallback
+            try:
+                from shared_fallback import ContractValidator
+                validator = ContractValidator("user_service")
+                openapi_schema = validator.generate_openapi_schema()
+                if openapi_schema:
+                    app.openapi_schema = openapi_schema
+                    logger.info("Generated OpenAPI schema from fallback contract validator")
+            except ImportError:
+                logger.warning("Fallback ContractValidator not available - running without schema generation")
     except Exception as e:
         logger.error(f"Error generating OpenAPI schema: {str(e)}")
 
@@ -86,10 +105,7 @@ async def redoc_html():
 async def get_openapi_schema():
     return app.openapi_schema
 
+# If this file is run directly, start the server
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app", 
-        host="0.0.0.0", 
-        port=int(os.getenv("PORT", "8001")),
-        reload=True
-    ) 
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True) 
