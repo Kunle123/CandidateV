@@ -22,8 +22,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8003
+# Create a startup script
+RUN echo '#!/bin/bash\n\
+PORT="${PORT:-8003}"\n\
+echo "Starting server on port $PORT"\n\
+exec uvicorn app.main:app --host 0.0.0.0 --port $PORT\n\
+' > /app/start.sh && chmod +x /app/start.sh
 
 # Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003"] 
+CMD ["/app/start.sh"] 

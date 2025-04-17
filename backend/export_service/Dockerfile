@@ -19,5 +19,12 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV EXPORT_DIR=/app/exports
 
-# Use app.py for the FastAPI application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8003"] 
+# Create a startup script
+RUN echo '#!/bin/bash\n\
+PORT="${PORT:-8003}"\n\
+echo "Starting export service on port $PORT"\n\
+exec uvicorn app:app --host 0.0.0.0 --port $PORT\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Use the startup script
+CMD ["/app/start.sh"] 
