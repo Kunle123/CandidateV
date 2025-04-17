@@ -16,7 +16,19 @@ logging.basicConfig(
 logger = logging.getLogger("user_service")
 
 # Import app
-from app import app
+try:
+    from app import app
+    logger.info("Successfully imported app from app package")
+except ImportError as e:
+    logger.error(f"Error importing app from app package: {str(e)}")
+    # Fallback to standalone app creation if import fails
+    from fastapi import FastAPI
+    app = FastAPI(
+        title="CandidateV User Service (Fallback)",
+        description="User management service for the CandidateV application",
+        version="1.0.0",
+    )
+    logger.warning("Created fallback FastAPI app")
 
 # Try to import contract validation if available
 try:
@@ -40,6 +52,12 @@ async def startup_event():
             logger.info("Generated OpenAPI schema from contract")
     except Exception as e:
         logger.error(f"Error generating OpenAPI schema: {str(e)}")
+
+# Add a root health check for testing
+@app.get("/health")
+async def root_health_check():
+    """Root health check endpoint"""
+    return {"status": "healthy"}
 
 # Replace FastAPI's default OpenAPI with our custom one
 def custom_openapi():
