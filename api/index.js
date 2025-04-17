@@ -84,13 +84,54 @@ async function checkServiceHealth(name, url) {
 
 // Environment variables with more explicit defaults
 const SERVICE_URLS = {
-  // Use public URLs like the working export service for all services
+  // Learn from the working export service URL format
   auth: process.env.AUTH_SERVICE_URL || 'https://candidatev-auth-service.up.railway.app',
   user: process.env.USER_SERVICE_URL || 'https://candidatev-user-service.up.railway.app',
-  cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app', 
+  cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app',
   export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
   ai: process.env.AI_SERVICE_URL || 'https://candidatev-ai-service.up.railway.app',
   payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app'
+};
+
+// Mock data for services that aren't deployed yet
+const MOCK_RESPONSES = {
+  // Mock data for user service
+  user: {
+    profile: {
+      id: "mock-user-id",
+      name: "Demo User",
+      email: "demo@example.com",
+      profilePicture: "https://via.placeholder.com/150",
+      title: "Software Developer",
+      location: "Remote",
+      about: "This is a mock user profile while the user service is being deployed."
+    }
+  },
+  // Mock data for CV service
+  cv: {
+    templates: [
+      { id: "modern", name: "Modern", thumbnail: "https://via.placeholder.com/150" },
+      { id: "professional", name: "Professional", thumbnail: "https://via.placeholder.com/150" },
+      { id: "creative", name: "Creative", thumbnail: "https://via.placeholder.com/150" }
+    ],
+    cv: {
+      id: "mock-cv-id",
+      title: "Software Developer CV",
+      sections: [
+        { type: "personal", title: "Personal Information", content: { name: "Demo User" } },
+        { type: "education", title: "Education", items: [{ institution: "Demo University" }] },
+        { type: "experience", title: "Experience", items: [{ company: "Demo Company" }] }
+      ]
+    }
+  },
+  // Mock data for payment service
+  payment: {
+    plans: [
+      { id: "basic", name: "Basic", price: 0, features: ["Limited CV exports"] },
+      { id: "premium", name: "Premium", price: 9.99, features: ["Unlimited CV exports"] }
+    ],
+    status: { active: true, plan: "basic", validUntil: "2025-12-31T23:59:59Z" }
+  }
 };
 
 // Log level from environment or default to info
@@ -246,7 +287,7 @@ app.get('/api/health', async (req, res) => {
 
 // Create a unified proxy creator for all services
 const createServiceProxy = (serviceName, targetUrl) => {
-  const isUnstableService = ['user', 'payment'].includes(serviceName);
+  const isUnstableService = ['user', 'payment', 'cv', 'ai', 'auth'].includes(serviceName);
   
   return createProxyMiddleware({
     target: targetUrl,
@@ -294,30 +335,60 @@ const createServiceProxy = (serviceName, targetUrl) => {
       serviceStatus[serviceName].lastError = err.message;
       logger.error(`${serviceName} service unavailable: ${err.message} for ${req.originalUrl}`);
       
-      // Special handling for user and payment services
-      if (isUnstableService) {
-        // Create fallback responses for important endpoints
-        if (serviceName === 'user' && req.path.includes('/profile')) {
-          // Return a mock profile for development/testing
-          return res.status(200).json({
-            id: "fallback-user-id",
-            name: "Fallback User",
-            email: req.headers.authorization ? "logged-in-user@example.com" : "guest@example.com",
-            status: "active",
-            fallback: true,
-            message: "This is a fallback response while the user service is unavailable",
-            requestId: req.id
-          });
+      // Provide mock responses for common endpoint patterns
+      if (MOCK_RESPONSES[serviceName]) {
+        // User service fallbacks
+        if (serviceName === 'user') {
+          if (req.path.includes('/profile')) {
+            return res.status(200).json({
+              ...MOCK_RESPONSES.user.profile,
+              _mockData: true,
+              message: "This is a mock response while the user service is unavailable",
+              requestId: req.id
+            });
+          }
         }
         
-        if (serviceName === 'payment' && req.path.includes('/status')) {
-          // Return a mock payment status
-          return res.status(200).json({
-            status: "pending",
-            fallback: true,
-            message: "Payment service is currently unavailable, showing fallback status",
-            requestId: req.id
-          });
+        // CV service fallbacks
+        if (serviceName === 'cv') {
+          if (req.path.includes('/templates')) {
+            return res.status(200).json({
+              templates: MOCK_RESPONSES.cv.templates,
+              _mockData: true,
+              message: "These are mock templates while the CV service is unavailable",
+              requestId: req.id
+            });
+          }
+          
+          if (req.path.includes('/cv/') && req.method === 'GET') {
+            return res.status(200).json({
+              ...MOCK_RESPONSES.cv.cv,
+              _mockData: true,
+              message: "This is a mock CV while the service is unavailable",
+              requestId: req.id
+            });
+          }
+        }
+        
+        // Payment service fallbacks
+        if (serviceName === 'payment') {
+          if (req.path.includes('/plans')) {
+            return res.status(200).json({
+              plans: MOCK_RESPONSES.payment.plans,
+              _mockData: true,
+              message: "These are mock plans while the payment service is unavailable",
+              requestId: req.id
+            });
+          }
+          
+          if (req.path.includes('/status')) {
+            return res.status(200).json({
+              ...MOCK_RESPONSES.payment.status,
+              _mockData: true,
+              message: "This is a mock payment status while the service is unavailable",
+              requestId: req.id
+            });
+          }
         }
       }
       
