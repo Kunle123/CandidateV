@@ -60,6 +60,59 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Mock auth registration endpoint
+app.post('/api/auth/register', (req, res) => {
+  console.log('Received registration request:', req.body);
+  
+  // Check if required fields are present
+  if (!req.body.email || !req.body.password) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Email and password are required',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Mock successful registration
+  res.status(201).json({
+    status: 'success',
+    message: 'User registered successfully',
+    user: {
+      id: `user-${Date.now()}`,
+      email: req.body.email,
+      created_at: new Date().toISOString()
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Mock auth login endpoint
+app.post('/api/auth/login', (req, res) => {
+  console.log('Received login request:', req.body);
+  
+  // Check if required fields are present
+  if (!req.body.email || !req.body.password) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Email and password are required',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Mock successful login
+  res.status(200).json({
+    status: 'success',
+    message: 'Login successful',
+    token: `mock-jwt-token-${Date.now()}`,
+    user: {
+      id: `user-${Date.now()}`,
+      email: req.body.email,
+      created_at: new Date().toISOString()
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
   res.json({
@@ -111,8 +164,15 @@ const createProxy = (serviceName, targetUrl) => {
   });
 };
 
-// Set up service routes
-app.use('/api/auth', createProxy('auth', SERVICE_URLS.auth));
+// Set up service routes - Note: These will only be used if a request doesn't match our local routes
+app.use('/api/auth', (req, res, next) => {
+  // We have local implementations for these auth routes
+  if (req.path === '/register' || req.path === '/login') {
+    return next('route'); // Skip the proxy for these routes
+  }
+  return createProxy('auth', SERVICE_URLS.auth)(req, res, next);
+});
+
 app.use('/api/users', createProxy('user', SERVICE_URLS.user));
 app.use('/api/cv', createProxy('cv', SERVICE_URLS.cv));
 app.use('/api/export', createProxy('export', SERVICE_URLS.export));
