@@ -7,7 +7,7 @@ The CandidateV application uses a distributed architecture with the following co
 1. **Frontend**: React application deployed on Vercel
    - Location: `/frontend` directory
    - Deployment: Vercel (https://candidatev.vercel.app or similar)
-   - Configuration: `frontend/vercel.json` and root `vercel.json`
+   - Configuration: `frontend/vercel.json` (only this file is used for deployment)
 
 2. **API Gateway**: Express.js application deployed on Railway
    - Location: `/backend/api_gateway` directory
@@ -22,15 +22,15 @@ The CandidateV application uses a distributed architecture with the following co
 
 All API requests follow this pattern:
 - Frontend makes requests to `/api/*`
-- Vercel (via rewrites in vercel.json) forwards these to `https://api-gateway-production.up.railway.app/api/*`
+- Vercel (via rewrites in frontend/vercel.json) forwards these to `https://api-gateway-production.up.railway.app/api/*`
 - The API Gateway on Railway routes requests to the appropriate microservice
 
 ## Deployment Files
 
-- **Root `vercel.json`**: Main configuration for Vercel deployment
-  - Builds from the frontend directory
+- **`frontend/vercel.json`**: Frontend configuration for Vercel deployment
   - Routes API requests to Railway API Gateway
   - All other routes go to the SPA frontend
+  - Specifies build configuration
 
 - **Frontend environment variables**:
   - Production (`.env`): Points to Railway API Gateway
@@ -39,10 +39,11 @@ All API requests follow this pattern:
 ## Vercel Deployment
 
 The Vercel deployment process:
-1. Uses the root `vercel.json` configuration
-2. Runs the build command `cd frontend && npm install && npm run build`
-3. Deploys the output from `frontend/dist`
-4. Sets up rewrites for API requests to Railway
+1. Uses the `frontend/vercel.json` configuration
+2. Deploys only the frontend directory
+3. Runs the build command defined in frontend/vercel.json
+4. Deploys the output from `frontend/dist`
+5. Sets up rewrites for API requests to Railway
 
 ## Historical Notes
 
@@ -51,7 +52,7 @@ The project previously had a different architecture where:
 2. The separate `/api` directory contained an earlier version of the API Gateway
 3. Multiple vercel.json files existed with conflicting configurations
 
-These have been consolidated into the current architecture with the API Gateway on Railway.
+These have been consolidated into the current architecture with the API Gateway on Railway and frontend on Vercel.
 
 ## Local Development
 
