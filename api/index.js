@@ -291,17 +291,31 @@ app.post('/api/ai/job-match/analyze', async (req, res) => {
 
 // Mock AI optimization endpoint
 app.post('/api/ai/optimize', async (req, res) => {
-  console.log('Received CV optimization request:', req.body);
+  console.log('Received CV optimization request:', JSON.stringify(req.body, null, 2));
   
   try {
     // Extract CV ID, targets, and job description from request
     const { cv_id, targets, job_description, user_comments } = req.body;
     
+    // Log validation details
+    console.log('Validation check:');
+    console.log('- cv_id present:', !!cv_id);
+    console.log('- targets present:', !!targets);
+    console.log('- targets is array:', Array.isArray(targets));
+    console.log('- targets length:', targets ? targets.length : 0);
+    
     if (!cv_id || !targets || targets.length === 0) {
+      console.log('Validation failed, returning 400 error');
       return res.status(400).json({
         status: 'error',
         message: 'CV ID and optimization targets are required',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        received_data: {
+          has_cv_id: !!cv_id,
+          has_targets: !!targets,
+          targets_length: targets ? targets.length : 0,
+          targets_format: targets ? typeof targets : 'undefined'
+        }
       });
     }
     
@@ -955,6 +969,45 @@ async function analyzeCV(cvContent, jobDescription) {
 
 // Function to optimize CV sections
 async function optimizeCV(cvSections, jobDescription) {
+  console.log('Starting CV optimization with sections:', JSON.stringify(cvSections, null, 2));
+  
+  // Ensure cvSections is in the expected format
+  let formattedSections = cvSections;
+  
+  // If cvSections doesn't have what we need, try to fix the format
+  if (!Array.isArray(cvSections) || (cvSections.length > 0 && !cvSections[0].section && !cvSections[0].content)) {
+    console.log('Reformatting CV sections for OpenAI');
+    // Try to reformat the data if it's not in the expected format
+    formattedSections = [];
+    
+    // Handle case where it's an object with section names as keys
+    if (typeof cvSections === 'object' && !Array.isArray(cvSections)) {
+      for (const [key, value] of Object.entries(cvSections)) {
+        formattedSections.push({
+          section: key,
+          content: typeof value === 'string' ? value : JSON.stringify(value)
+        });
+      }
+    } 
+    // Handle case where it's an array of different format
+    else if (Array.isArray(cvSections)) {
+      formattedSections = cvSections.map(item => {
+        // Try to extract section and content from various formats
+        const section = item.section || item.id || item.name || 'section';
+        let content = item.content || item.text || item.value || '';
+        
+        // If content is an object, convert to string
+        if (typeof content === 'object') {
+          content = JSON.stringify(content);
+        }
+        
+        return { section, content };
+      });
+    }
+  }
+  
+  console.log('Formatted sections for OpenAI:', JSON.stringify(formattedSections, null, 2));
+  
   const messages = [
     {
       role: "system",
@@ -970,10 +1023,10 @@ async function optimizeCV(cvSections, jobDescription) {
       content: `Please optimize the following CV sections for this job description:
       
       Job Description:
-      ${jobDescription}
+      ${jobDescription || 'Not provided'}
       
       CV Sections:
-      ${JSON.stringify(cvSections, null, 2)}
+      ${JSON.stringify(formattedSections, null, 2)}
       
       For each section, provide the optimized content and a list of improvements made.
       Return your response as valid JSON in this format without any markdown formatting, code blocks, or backticks:
