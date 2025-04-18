@@ -142,7 +142,7 @@ The application now includes direct OpenAI integration in the API Gateway for en
 3. **Professional CV Optimization**: Gets context-aware suggestions to improve CV sections based on specific job requirements
 4. **Tailored Cover Letter Generation**: Creates highly personalized cover letters that highlight relevant skills and experiences
 
-The integration includes fallback mechanisms to ensure the application works even without an OpenAI API key.
+The OpenAI API key is now **required** for AI features to work. If the API key is not configured, the AI endpoints will return a service offline status rather than using mock implementations.
 
 To use these features, you need:
 1. An OpenAI API key set in the `.env` file of the API Gateway

@@ -23,6 +23,27 @@ This API Gateway now includes OpenAI integration for CV analysis, optimization, 
    - Creates tailored cover letters based on CV and job description
    - Includes proper formatting, key points, and relevant keywords
 
+## AI Service Status
+
+### Required OpenAI API Key
+
+The OpenAI API key is now **required** for AI features to work. If the OpenAI API key is not provided in the `.env` file:
+
+- AI endpoints will return a 503 Service Unavailable response
+- The response will include a message indicating the service is offline
+- Frontend applications should handle this gracefully and display an appropriate message
+
+Example response when API key is missing:
+```json
+{
+  "status": "error",
+  "message": "AI service is currently offline. Please try again later.",
+  "service_status": "offline",
+  "details": "OpenAI API key is not configured. Contact the administrator to enable this feature.",
+  "timestamp": "2023-05-01T12:34:56.789Z"
+}
+```
+
 ## Setup
 
 1. Clone the repository
@@ -95,10 +116,6 @@ curl -X POST http://localhost:3000/api/ai/cover-letter \
     "user_comments": "I particularly enjoy working in fast-paced environments."
   }'
 ```
-
-## Fallback to Mock Implementation
-
-If the OpenAI API key is not provided, the system will automatically fall back to mock implementations for all AI endpoints. This allows for development and testing without consuming OpenAI API credits.
 
 ## Testing OpenAI Integration
 

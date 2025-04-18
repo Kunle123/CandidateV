@@ -259,82 +259,19 @@ app.post('/api/ai/job-match/analyze', async (req, res) => {
       result.analysis_timestamp = new Date().toISOString();
       result.cv_id = cv_id;
     } else {
-      console.log('OpenAI API Key not configured, using mock implementation');
-      // Use the existing mock implementation as fallback
-      // Generate a more realistic match score based on job description and CV ID
-      let calculatedScore;
+      console.log('OpenAI API Key not configured, returning service offline message');
       
-      // Simple algorithm to generate a score that isn't always the same
-      if (job_description) {
-        // Use job description length and content to influence score
-        const jobLength = job_description.length;
-        const hasKeyword1 = job_description.toLowerCase().includes('project') ? 10 : 0;
-        const hasKeyword2 = job_description.toLowerCase().includes('management') ? 8 : 0;
-        const hasKeyword3 = job_description.toLowerCase().includes('software') ? 15 : 0;
-        const hasKeyword4 = job_description.toLowerCase().includes('development') ? 12 : 0;
-        
-        // Generate a more variable score
-        calculatedScore = Math.min(95, Math.max(65, 
-          75 + hasKeyword1 + hasKeyword2 + hasKeyword3 + hasKeyword4 + 
-          (jobLength % 20) - (jobLength % 7)
-        ));
-      } else {
-        calculatedScore = 78.5; // Default if no job description
-      }
-      
-      console.log(`Generated calculated match score: ${calculatedScore.toFixed(1)}%`);
-      
-      // Create strengths and weaknesses based on job description
-      const strengths = [];
-      const weaknesses = [];
-      const keywords_found = [];
-      const keywords_missing = [];
-      
-      // Extract potential skills from job description
-      const skillKeywords = [
-        'project management', 'agile', 'scrum', 'kanban', 'waterfall',
-        'javascript', 'python', 'react', 'node', 'java', 'c#', '.net',
-        'cloud', 'aws', 'azure', 'gcp', 'docker', 'kubernetes',
-        'leadership', 'communication', 'teamwork', 'problem-solving'
-      ];
-      
-      // Check for skills in job description
-      skillKeywords.forEach(skill => {
-        if (job_description && job_description.toLowerCase().includes(skill)) {
-          // 70% chance to add as a strength
-          if (Math.random() > 0.3) {
-            strengths.push(`Good experience with ${skill}`);
-            keywords_found.push(skill);
-          } else {
-            weaknesses.push(`Consider highlighting more ${skill} experience`);
-            keywords_missing.push(skill);
-          }
-        }
+      // Return a service offline message instead of using mock implementation
+      return res.status(503).json({
+        status: 'error',
+        message: 'AI service is currently offline. Please try again later.',
+        service_status: 'offline',
+        details: 'OpenAI API key is not configured. Contact the administrator to enable this feature.',
+        timestamp: new Date().toISOString()
       });
       
-      // Add some default strengths and weaknesses if we don't have enough
-      if (strengths.length < 3) {
-        strengths.push("Strong professional experience");
-        strengths.push("Relevant educational background");
-        strengths.push("Good communication skills highlighted");
-      }
-      
-      if (weaknesses.length < 2) {
-        weaknesses.push("Consider adding more specific achievements with metrics");
-        weaknesses.push("Some industry keywords might be missing from your CV");
-      }
-      
-      // Create improved mock job match analysis results with calculated score
-      result = {
-        match_score: parseFloat(calculatedScore.toFixed(1)),
-        cv_id: cv_id,
-        overview: "Your CV has been analyzed against the job description. Here's a summary of how well your CV matches the requirements.",
-        strengths: strengths.slice(0, 5), // Limit to 5 strengths
-        weaknesses: weaknesses.slice(0, 4), // Limit to 4 weaknesses
-        keywords_found: keywords_found.slice(0, 6), // Limit to 6 keywords
-        keywords_missing: keywords_missing.slice(0, 4), // Limit to 4 keywords
-        analysis_timestamp: new Date().toISOString()
-      };
+      // The code below is now unreachable
+      console.log('OpenAI API Key not configured, using mock implementation');
     }
     
     console.log('Returning job match analysis with structure:', result);
@@ -382,70 +319,19 @@ app.post('/api/ai/optimize', async (req, res) => {
       // Use the optimized sections from the OpenAI response
       optimized_sections = optimizationResult.optimized_sections;
     } else {
-      console.log('OpenAI API Key not configured, using mock implementation');
-      // Create optimized sections based on the targets
-      optimized_sections = targets.map(target => {
-        // Extract the original content and section type
-        const original_content = target.content || '';
-        const sectionType = target.section || 'unknown';
-        
-        // Use job description keywords to improve the section if available
-        let keywords = [];
-        if (job_description) {
-          // Extract potential keywords from job description
-          const keywordMatches = job_description.match(/\b\w{5,}\b/g) || [];
-          keywords = [...new Set(keywordMatches)].slice(0, 10); // Get unique keywords
-        }
-        
-        // Generate an optimized version based on section type
-        let optimized_content = '';
-        let improvements = [];
-        
-        // Different optimization strategies based on section type
-        if (sectionType.includes('summary')) {
-          // For summary sections, make it more concise and professional
-          optimized_content = `${generateProfessionalSummary(original_content, job_description, keywords)}`;
-          improvements = [
-            "Made summary more focused on specific achievements",
-            "Aligned with job requirements",
-            "Improved professional tone"
-          ];
-        } 
-        else if (sectionType.includes('experience')) {
-          // For experience sections, add achievements and metrics
-          optimized_content = `${generateImprovedExperience(original_content, job_description, keywords)}`;
-          improvements = [
-            "Added quantifiable achievements",
-            "Highlighted relevant skills",
-            "Used stronger action verbs"
-          ];
-        }
-        else if (sectionType.includes('skills')) {
-          // For skills, prioritize ones mentioned in job description
-          optimized_content = `${generateRelevantSkills(original_content, job_description, keywords)}`;
-          improvements = [
-            "Prioritized skills mentioned in job description",
-            "Added relevant technical competencies",
-            "Removed less relevant skills"
-          ];
-        }
-        else {
-          // Generic optimization for other sections
-          optimized_content = `${original_content} ${generateGenericImprovement(original_content, job_description)}`;
-          improvements = [
-            "Improved clarity and structure",
-            "Enhanced professional language",
-            "Better aligned with industry standards"
-          ];
-        }
-        
-        return {
-          section: target.section,
-          original_content: original_content,
-          optimized_content: optimized_content,
-          improvements: improvements
-        };
+      console.log('OpenAI API Key not configured, returning service offline message');
+      
+      // Return a service offline message instead of using mock implementation
+      return res.status(503).json({
+        status: 'error',
+        message: 'AI service is currently offline. Please try again later.',
+        service_status: 'offline',
+        details: 'OpenAI API key is not configured. Contact the administrator to enable this feature.',
+        timestamp: new Date().toISOString()
       });
+      
+      // The code below is now unreachable
+      console.log('OpenAI API Key not configured, using mock implementation');
     }
     
     // Return optimization results
@@ -714,30 +600,19 @@ app.post('/api/ai/cover-letter', async (req, res) => {
       keyPoints = aiResponse.key_points;
       keywordsUsed = aiResponse.keywords_used;
     } else {
+      console.log('OpenAI API Key not configured, returning service offline message');
+      
+      // Return a service offline message instead of using mock implementation
+      return res.status(503).json({
+        status: 'error',
+        message: 'AI service is currently offline. Please try again later.',
+        service_status: 'offline',
+        details: 'OpenAI API key is not configured. Contact the administrator to enable this feature.',
+        timestamp: new Date().toISOString()
+      });
+      
+      // The code below is now unreachable
       console.log('OpenAI API Key not configured, using mock implementation');
-      // Extract keywords from job description for mock implementation
-      let keywords = [];
-      if (job_description) {
-        // Extract potential keywords from job description
-        const keywordMatches = job_description.match(/\b\w{5,}\b/g) || [];
-        keywords = [...new Set(keywordMatches)].slice(0, 12); // Get unique keywords
-      }
-      
-      // Generate a tailored cover letter using mock implementation
-      coverLetter = generateCoverLetter(
-        job_description, 
-        company_name, 
-        recipient_name, 
-        position_title, 
-        keywords,
-        user_comments
-      );
-      
-      // Extract key points from the cover letter
-      keyPoints = extractKeyPoints(coverLetter, keywords);
-      
-      // Extract keywords used in the cover letter
-      keywordsUsed = extractKeywordsUsed(coverLetter, keywords);
     }
     
     // Return the generated cover letter
