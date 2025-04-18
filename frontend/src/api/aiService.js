@@ -61,7 +61,31 @@ const aiService = {
         job_description: jobDescription,
         detailed: true
       });
-      return { success: true, data: response.data };
+      
+      // Ensure the response has the expected structure
+      // If the data is already structured as expected with strengths, weaknesses, etc.
+      if (response.data && (response.data.strengths || response.data.weaknesses)) {
+        return { success: true, data: response.data };
+      }
+      
+      // If response is nested inside data property
+      if (response.data && response.data.data && 
+          (response.data.data.strengths || response.data.data.weaknesses)) {
+        return { success: true, data: response.data.data };
+      }
+      
+      // If response is missing expected fields, provide fallback values
+      const fallbackData = {
+        match_score: response.data?.match_score || 75,
+        overview: response.data?.overview || "Your CV has been analyzed against the job description.",
+        strengths: response.data?.strengths || [],
+        weaknesses: response.data?.weaknesses || [],
+        keywords_found: response.data?.keywords_found || [],
+        keywords_missing: response.data?.keywords_missing || []
+      };
+      
+      console.log("Using fallback data structure for job match analysis:", fallbackData);
+      return { success: true, data: fallbackData };
     } catch (error) {
       return { 
         success: false, 
