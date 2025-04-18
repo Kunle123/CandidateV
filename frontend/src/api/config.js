@@ -16,9 +16,9 @@ const BASE_URLS = {
 
 // Timeout settings (milliseconds)
 const TIMEOUTS = {
-  development: 10000, // 10 seconds
-  production: 15000,  // 15 seconds
-  test: 5000          // 5 seconds
+  development: 30000, // 30 seconds
+  production: 45000,  // 45 seconds
+  test: 10000         // 10 seconds
 };
 
 // Config export

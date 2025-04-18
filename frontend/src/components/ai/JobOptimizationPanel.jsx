@@ -117,6 +117,14 @@ const JobOptimizationPanel = ({ cvId, cvData }) => {
       }
       
       // Call the AI service to optimize the CV - Use apiService instead of axios
+      toast({
+        title: 'Optimizing your CV',
+        description: 'This may take up to 1 minute. Please wait...',
+        status: 'info',
+        duration: 15000, // 15 seconds
+        isClosable: true,
+      });
+      
       const response = await apiService.post('/ai/optimize', {
         cv_id: cvId,
         targets: targets.length > 0 ? targets : [
@@ -145,14 +153,27 @@ const JobOptimizationPanel = ({ cvId, cvData }) => {
       });
     } catch (err) {
       console.error('Error optimizing CV:', err);
-      setError('Failed to optimize CV. Please try again later.');
-      toast({
-        title: 'Optimization failed',
-        description: err.response?.data?.detail || 'An error occurred while optimizing your CV',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+      
+      // Check if it's a timeout error
+      if (err.message && (err.message.includes('timeout') || err.code === 'ECONNABORTED')) {
+        setError('The optimization request timed out. The server might be busy. Please try again in a few minutes.');
+        toast({
+          title: 'Request timed out',
+          description: 'The CV optimization is taking longer than expected. Please try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } else {
+        setError('Failed to optimize CV. Please try again later.');
+        toast({
+          title: 'Optimization failed',
+          description: err.response?.data?.detail || 'An error occurred while optimizing your CV',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     } finally {
       setIsOptimizing(false);
     }

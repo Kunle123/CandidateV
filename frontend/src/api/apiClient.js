@@ -260,6 +260,21 @@ export const apiService = {
   
   // Wrapper for POST requests
   post: (path, data = {}, config = {}) => {
+    // Apply extended timeout for AI-related endpoints
+    if (path.includes('ai/optimize') || path.includes('ai/cover-letter') || path.includes('ai/generate')) {
+      const extendedConfig = { 
+        ...config,
+        timeout: 60000 // 60-second timeout for AI operations
+      };
+      
+      if (path.startsWith('/api/') || path.startsWith('api/')) {
+        return apiClient.post(path, data, extendedConfig);
+      }
+      const cleanPath = path.replace(/^\/+/, '');
+      return apiClient.post(`/api/${cleanPath}`, data, extendedConfig);
+    }
+    
+    // Regular timeout for non-AI endpoints
     if (path.startsWith('/api/') || path.startsWith('api/')) {
       return apiClient.post(path, data, config);
     }

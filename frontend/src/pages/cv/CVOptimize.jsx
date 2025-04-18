@@ -315,6 +315,15 @@ const CVOptimize = () => {
       }
       
       // Call the AI service to optimize the CV
+      // Show a notice that this might take some time
+      toast({
+        title: 'Optimizing your CV',
+        description: 'This may take up to 1 minute. Please wait...',
+        status: 'info',
+        duration: 15000, // 15 seconds
+        isClosable: true,
+      });
+      
       const response = await apiService.post('/ai/optimize', {
         cv_id: selectedCVId,
         targets: targets.length > 0 ? targets : [
@@ -344,40 +353,52 @@ const CVOptimize = () => {
     } catch (err) {
       console.error('Error optimizing CV:', err);
       
-      // Mock optimized sections for demo purposes
-      const mockOptimizedSections = [
-        {
-          section: "summary",
-          original_content: "Experienced project manager with a background in engineering and technology implementations.",
-          optimized_content: "Results-driven Project Manager with 7+ years of experience implementing complex engineering and power transmission systems. Proven track record of delivering critical projects within demanding timescales while maintaining quality standards and system integrity.",
-          improvements: [
-            "Added specific expertise in power transmission systems",
-            "Highlighted experience with critical projects and demanding timescales",
-            "Emphasized quality standards maintenance"
-          ]
-        },
-        {
-          section: "experience_0",
-          original_content: "Led multiple engineering projects for clients in the energy sector.",
-          optimized_content: "Led cross-functional teams implementing SCADA/DCS systems for critical power transmission infrastructure, ensuring compliance with ISO standards and delivering projects within strict timelines. Managed stakeholder relationships and conducted regular progress reviews to maintain project integrity.",
-          improvements: [
-            "Emphasized SCADA/DCS system experience",
-            "Added ISO standards compliance work",
-            "Highlighted stakeholder management experience"
-          ]
-        }
-      ];
-      
-      toast({
-        title: 'Using mock data',
-        description: 'Connected to demo mode - backend services not fully available',
-        status: 'info',
-        duration: 5000,
-        isClosable: true,
-      });
-      
-      setOptimizedSections(mockOptimizedSections);
-      setActiveStep(3); // Move to optimization results step
+      // Check if it's a timeout error
+      if (err.message && (err.message.includes('timeout') || err.code === 'ECONNABORTED')) {
+        setError('The optimization request timed out. The server might be busy. Please try again in a few minutes.');
+        toast({
+          title: 'Request timed out',
+          description: 'The CV optimization is taking longer than expected. Please try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } else {
+        // Mock optimized sections for demo purposes
+        const mockOptimizedSections = [
+          {
+            section: "summary",
+            original_content: "Experienced project manager with a background in engineering and technology implementations.",
+            optimized_content: "Results-driven Project Manager with 7+ years of experience implementing complex engineering and power transmission systems. Proven track record of delivering critical projects within demanding timescales while maintaining quality standards and system integrity.",
+            improvements: [
+              "Added specific expertise in power transmission systems",
+              "Highlighted experience with critical projects and demanding timescales",
+              "Emphasized quality standards maintenance"
+            ]
+          },
+          {
+            section: "experience_0",
+            original_content: "Led multiple engineering projects for clients in the energy sector.",
+            optimized_content: "Led cross-functional teams implementing SCADA/DCS systems for critical power transmission infrastructure, ensuring compliance with ISO standards and delivering projects within strict timelines. Managed stakeholder relationships and conducted regular progress reviews to maintain project integrity.",
+            improvements: [
+              "Emphasized SCADA/DCS system experience",
+              "Added ISO standards compliance work",
+              "Highlighted stakeholder management experience"
+            ]
+          }
+        ];
+        
+        toast({
+          title: 'Using mock data',
+          description: 'Connected to demo mode - backend services not fully available',
+          status: 'info',
+          duration: 5000,
+          isClosable: true,
+        });
+        
+        setOptimizedSections(mockOptimizedSections);
+        setActiveStep(3); // Move to optimization results step
+      }
     } finally {
       setOptimizing(false);
     }
