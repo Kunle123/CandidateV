@@ -133,8 +133,19 @@ The AI service provides several key features:
 3. **CV Optimization**: Provides specific recommendations to improve CVs
 4. **Cover Letter Generation**: Creates customized cover letters based on CV content and job descriptions
 
+### OpenAI Integration
+
+The application now includes direct OpenAI integration in the API Gateway for enhanced AI features:
+
+1. **Advanced CV Analysis**: Uses OpenAI's language models to provide more accurate and detailed feedback on CVs
+2. **Intelligent Job Matching**: Leverages OpenAI to analyze job descriptions and CVs for precise matching scores and recommendations
+3. **Professional CV Optimization**: Gets context-aware suggestions to improve CV sections based on specific job requirements
+4. **Tailored Cover Letter Generation**: Creates highly personalized cover letters that highlight relevant skills and experiences
+
+The integration includes fallback mechanisms to ensure the application works even without an OpenAI API key.
+
 To use these features, you need:
-1. An OpenAI API key set in the `.env` file of the AI service
+1. An OpenAI API key set in the `.env` file of the API Gateway
 2. Authentication with a valid JWT token
 3. Connection to the CV service for accessing CV data
 

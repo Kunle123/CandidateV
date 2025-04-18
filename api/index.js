@@ -4,9 +4,15 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// OpenAI Configuration
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_URL = 'https://api.openai.com/v1';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
 
 // Environment variables with explicit defaults
 const SERVICE_URLS = {
@@ -210,92 +216,131 @@ app.post('/api/debug/echo', (req, res) => {
 });
 
 // Mock AI job matching endpoint
-app.post('/api/ai/job-match/analyze', (req, res) => {
+app.post('/api/ai/job-match/analyze', async (req, res) => {
   console.log('Received job matching request:', req.body);
   
   try {
     // Extract CV ID and job description from request
     const { cv_id, job_description, detailed } = req.body;
     
-    // Generate a more realistic match score based on job description and CV ID
-    let calculatedScore;
-    
-    // Simple algorithm to generate a score that isn't always the same
-    if (job_description) {
-      // Use job description length and content to influence score
-      const jobLength = job_description.length;
-      const hasKeyword1 = job_description.toLowerCase().includes('project') ? 10 : 0;
-      const hasKeyword2 = job_description.toLowerCase().includes('management') ? 8 : 0;
-      const hasKeyword3 = job_description.toLowerCase().includes('software') ? 15 : 0;
-      const hasKeyword4 = job_description.toLowerCase().includes('development') ? 12 : 0;
-      
-      // Generate a more variable score
-      calculatedScore = Math.min(95, Math.max(65, 
-        75 + hasKeyword1 + hasKeyword2 + hasKeyword3 + hasKeyword4 + 
-        (jobLength % 20) - (jobLength % 7)
-      ));
-    } else {
-      calculatedScore = 78.5; // Default if no job description
+    if (!cv_id || !job_description) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'CV ID and job description are required',
+        timestamp: new Date().toISOString()
+      });
     }
     
-    console.log(`Generated calculated match score: ${calculatedScore.toFixed(1)}%`);
+    console.log(`Analyzing job match for CV ${cv_id}`);
     
-    // Create strengths and weaknesses based on job description
-    const strengths = [];
-    const weaknesses = [];
-    const keywords_found = [];
-    const keywords_missing = [];
-    
-    // Extract potential skills from job description
-    const skillKeywords = [
-      'project management', 'agile', 'scrum', 'kanban', 'waterfall',
-      'javascript', 'python', 'react', 'node', 'java', 'c#', '.net',
-      'cloud', 'aws', 'azure', 'gcp', 'docker', 'kubernetes',
-      'leadership', 'communication', 'teamwork', 'problem-solving'
-    ];
-    
-    // Check for skills in job description
-    skillKeywords.forEach(skill => {
-      if (job_description && job_description.toLowerCase().includes(skill)) {
-        // 70% chance to add as a strength
-        if (Math.random() > 0.3) {
-          strengths.push(`Good experience with ${skill}`);
-          keywords_found.push(skill);
-        } else {
-          weaknesses.push(`Consider highlighting more ${skill} experience`);
-          keywords_missing.push(skill);
-        }
+    // First, get the CV content from our API
+    let cvContent;
+    try {
+      // Get CV content from CV service or mock endpoint
+      const cvResponse = await axios.get(`http://localhost:${PORT}/api/cv/${cv_id}`);
+      if (cvResponse.data && cvResponse.data.data) {
+        // Convert CV data to string format for analysis
+        cvContent = JSON.stringify(cvResponse.data.data);
+      } else {
+        throw new Error('CV data not found');
       }
-    });
-    
-    // Add some default strengths and weaknesses if we don't have enough
-    if (strengths.length < 3) {
-      strengths.push("Strong professional experience");
-      strengths.push("Relevant educational background");
-      strengths.push("Good communication skills highlighted");
+    } catch (error) {
+      console.error('Error fetching CV data:', error);
+      cvContent = `This is a mock CV with ID ${cv_id} for testing purposes.`;
     }
     
-    if (weaknesses.length < 2) {
-      weaknesses.push("Consider adding more specific achievements with metrics");
-      weaknesses.push("Some industry keywords might be missing from your CV");
+    let result;
+    // If OPENAI_API_KEY is configured, use OpenAI for analysis
+    if (OPENAI_API_KEY) {
+      console.log('Using OpenAI for job match analysis');
+      result = await analyzeCV(cvContent, job_description);
+      
+      // Add the analysis timestamp and CV ID to the result
+      result.analysis_timestamp = new Date().toISOString();
+      result.cv_id = cv_id;
+    } else {
+      console.log('OpenAI API Key not configured, using mock implementation');
+      // Use the existing mock implementation as fallback
+      // Generate a more realistic match score based on job description and CV ID
+      let calculatedScore;
+      
+      // Simple algorithm to generate a score that isn't always the same
+      if (job_description) {
+        // Use job description length and content to influence score
+        const jobLength = job_description.length;
+        const hasKeyword1 = job_description.toLowerCase().includes('project') ? 10 : 0;
+        const hasKeyword2 = job_description.toLowerCase().includes('management') ? 8 : 0;
+        const hasKeyword3 = job_description.toLowerCase().includes('software') ? 15 : 0;
+        const hasKeyword4 = job_description.toLowerCase().includes('development') ? 12 : 0;
+        
+        // Generate a more variable score
+        calculatedScore = Math.min(95, Math.max(65, 
+          75 + hasKeyword1 + hasKeyword2 + hasKeyword3 + hasKeyword4 + 
+          (jobLength % 20) - (jobLength % 7)
+        ));
+      } else {
+        calculatedScore = 78.5; // Default if no job description
+      }
+      
+      console.log(`Generated calculated match score: ${calculatedScore.toFixed(1)}%`);
+      
+      // Create strengths and weaknesses based on job description
+      const strengths = [];
+      const weaknesses = [];
+      const keywords_found = [];
+      const keywords_missing = [];
+      
+      // Extract potential skills from job description
+      const skillKeywords = [
+        'project management', 'agile', 'scrum', 'kanban', 'waterfall',
+        'javascript', 'python', 'react', 'node', 'java', 'c#', '.net',
+        'cloud', 'aws', 'azure', 'gcp', 'docker', 'kubernetes',
+        'leadership', 'communication', 'teamwork', 'problem-solving'
+      ];
+      
+      // Check for skills in job description
+      skillKeywords.forEach(skill => {
+        if (job_description && job_description.toLowerCase().includes(skill)) {
+          // 70% chance to add as a strength
+          if (Math.random() > 0.3) {
+            strengths.push(`Good experience with ${skill}`);
+            keywords_found.push(skill);
+          } else {
+            weaknesses.push(`Consider highlighting more ${skill} experience`);
+            keywords_missing.push(skill);
+          }
+        }
+      });
+      
+      // Add some default strengths and weaknesses if we don't have enough
+      if (strengths.length < 3) {
+        strengths.push("Strong professional experience");
+        strengths.push("Relevant educational background");
+        strengths.push("Good communication skills highlighted");
+      }
+      
+      if (weaknesses.length < 2) {
+        weaknesses.push("Consider adding more specific achievements with metrics");
+        weaknesses.push("Some industry keywords might be missing from your CV");
+      }
+      
+      // Create improved mock job match analysis results with calculated score
+      result = {
+        match_score: parseFloat(calculatedScore.toFixed(1)),
+        cv_id: cv_id,
+        overview: "Your CV has been analyzed against the job description. Here's a summary of how well your CV matches the requirements.",
+        strengths: strengths.slice(0, 5), // Limit to 5 strengths
+        weaknesses: weaknesses.slice(0, 4), // Limit to 4 weaknesses
+        keywords_found: keywords_found.slice(0, 6), // Limit to 6 keywords
+        keywords_missing: keywords_missing.slice(0, 4), // Limit to 4 keywords
+        analysis_timestamp: new Date().toISOString()
+      };
     }
     
-    // Create improved mock job match analysis results with calculated score
-    const mockResult = {
-      match_score: parseFloat(calculatedScore.toFixed(1)),
-      cv_id: cv_id,
-      overview: "Your CV has been analyzed against the job description. Here's a summary of how well your CV matches the requirements.",
-      strengths: strengths.slice(0, 5), // Limit to 5 strengths
-      weaknesses: weaknesses.slice(0, 4), // Limit to 4 weaknesses
-      keywords_found: keywords_found.slice(0, 6), // Limit to 6 keywords
-      keywords_missing: keywords_missing.slice(0, 4), // Limit to 4 keywords
-      analysis_timestamp: new Date().toISOString()
-    };
+    console.log('Returning job match analysis with structure:', result);
     
-    console.log('Returning job match analysis with structure:', mockResult);
-    
-    // Return a properly structured response
-    res.status(200).json(mockResult);
+    // Return the analysis result
+    res.status(200).json(result);
   } catch (error) {
     console.error('Error in job matching endpoint:', error);
     res.status(500).json({
@@ -307,21 +352,8 @@ app.post('/api/ai/job-match/analyze', (req, res) => {
   }
 });
 
-// Force real service connection with a specific header
-app.use((req, res, next) => {
-  // Check for a special header that forces use of the real service
-  if (req.headers['x-use-real-service'] === 'true' || req.query.use_real_service === 'true') {
-    const servicePath = req.path.split('/')[2]; // Extract service name from path
-    if (servicePath && SERVICE_URLS[servicePath]) {
-      console.log(`Forcing use of real service for ${req.method} ${req.originalUrl}`);
-      return createProxy(servicePath, SERVICE_URLS[servicePath])(req, res, next);
-    }
-  }
-  next();
-});
-
 // Mock AI optimization endpoint
-app.post('/api/ai/optimize', (req, res) => {
+app.post('/api/ai/optimize', async (req, res) => {
   console.log('Received CV optimization request:', req.body);
   
   try {
@@ -338,69 +370,83 @@ app.post('/api/ai/optimize', (req, res) => {
     
     console.log(`Optimizing CV ${cv_id} with ${targets.length} targets`);
     
-    // Create optimized sections based on the targets
-    const optimized_sections = targets.map(target => {
-      // Extract the original content and section type
-      const original_content = target.content || '';
-      const sectionType = target.section || 'unknown';
+    let optimized_sections;
+    
+    // If OpenAI API key is configured, use it for optimization
+    if (OPENAI_API_KEY) {
+      console.log('Using OpenAI for CV optimization');
       
-      // Use job description keywords to improve the section if available
-      let keywords = [];
-      if (job_description) {
-        // Extract potential keywords from job description
-        const keywordMatches = job_description.match(/\b\w{5,}\b/g) || [];
-        keywords = [...new Set(keywordMatches)].slice(0, 10); // Get unique keywords
-      }
+      // Get the response from OpenAI
+      const optimizationResult = await optimizeCV(targets, job_description);
       
-      // Generate an optimized version based on section type
-      let optimized_content = '';
-      let improvements = [];
-      
-      // Different optimization strategies based on section type
-      if (sectionType.includes('summary')) {
-        // For summary sections, make it more concise and professional
-        optimized_content = `${generateProfessionalSummary(original_content, job_description, keywords)}`;
-        improvements = [
-          "Made summary more focused on specific achievements",
-          "Aligned with job requirements",
-          "Improved professional tone"
-        ];
-      } 
-      else if (sectionType.includes('experience')) {
-        // For experience sections, add achievements and metrics
-        optimized_content = `${generateImprovedExperience(original_content, job_description, keywords)}`;
-        improvements = [
-          "Added quantifiable achievements",
-          "Highlighted relevant skills",
-          "Used stronger action verbs"
-        ];
-      }
-      else if (sectionType.includes('skills')) {
-        // For skills, prioritize ones mentioned in job description
-        optimized_content = `${generateRelevantSkills(original_content, job_description, keywords)}`;
-        improvements = [
-          "Prioritized skills mentioned in job description",
-          "Added relevant technical competencies",
-          "Removed less relevant skills"
-        ];
-      }
-      else {
-        // Generic optimization for other sections
-        optimized_content = `${original_content} ${generateGenericImprovement(original_content, job_description)}`;
-        improvements = [
-          "Improved clarity and structure",
-          "Enhanced professional language",
-          "Better aligned with industry standards"
-        ];
-      }
-      
-      return {
-        section: target.section,
-        original_content: original_content,
-        optimized_content: optimized_content,
-        improvements: improvements
-      };
-    });
+      // Use the optimized sections from the OpenAI response
+      optimized_sections = optimizationResult.optimized_sections;
+    } else {
+      console.log('OpenAI API Key not configured, using mock implementation');
+      // Create optimized sections based on the targets
+      optimized_sections = targets.map(target => {
+        // Extract the original content and section type
+        const original_content = target.content || '';
+        const sectionType = target.section || 'unknown';
+        
+        // Use job description keywords to improve the section if available
+        let keywords = [];
+        if (job_description) {
+          // Extract potential keywords from job description
+          const keywordMatches = job_description.match(/\b\w{5,}\b/g) || [];
+          keywords = [...new Set(keywordMatches)].slice(0, 10); // Get unique keywords
+        }
+        
+        // Generate an optimized version based on section type
+        let optimized_content = '';
+        let improvements = [];
+        
+        // Different optimization strategies based on section type
+        if (sectionType.includes('summary')) {
+          // For summary sections, make it more concise and professional
+          optimized_content = `${generateProfessionalSummary(original_content, job_description, keywords)}`;
+          improvements = [
+            "Made summary more focused on specific achievements",
+            "Aligned with job requirements",
+            "Improved professional tone"
+          ];
+        } 
+        else if (sectionType.includes('experience')) {
+          // For experience sections, add achievements and metrics
+          optimized_content = `${generateImprovedExperience(original_content, job_description, keywords)}`;
+          improvements = [
+            "Added quantifiable achievements",
+            "Highlighted relevant skills",
+            "Used stronger action verbs"
+          ];
+        }
+        else if (sectionType.includes('skills')) {
+          // For skills, prioritize ones mentioned in job description
+          optimized_content = `${generateRelevantSkills(original_content, job_description, keywords)}`;
+          improvements = [
+            "Prioritized skills mentioned in job description",
+            "Added relevant technical competencies",
+            "Removed less relevant skills"
+          ];
+        }
+        else {
+          // Generic optimization for other sections
+          optimized_content = `${original_content} ${generateGenericImprovement(original_content, job_description)}`;
+          improvements = [
+            "Improved clarity and structure",
+            "Enhanced professional language",
+            "Better aligned with industry standards"
+          ];
+        }
+        
+        return {
+          section: target.section,
+          original_content: original_content,
+          optimized_content: optimized_content,
+          improvements: improvements
+        };
+      });
+    }
     
     // Return optimization results
     res.status(200).json({
@@ -609,7 +655,7 @@ function generateGenericImprovement(originalContent, jobDescription) {
 }
 
 // Mock cover letter generation endpoint
-app.post('/api/ai/cover-letter', (req, res) => {
+app.post('/api/ai/cover-letter', async (req, res) => {
   console.log('Received cover letter generation request:', req.body);
   
   try {
@@ -633,29 +679,66 @@ app.post('/api/ai/cover-letter', (req, res) => {
     
     console.log(`Generating cover letter for CV ${cv_id} and position at ${company_name}`);
     
-    // Extract keywords from job description
-    let keywords = [];
-    if (job_description) {
-      // Extract potential keywords from job description
-      const keywordMatches = job_description.match(/\b\w{5,}\b/g) || [];
-      keywords = [...new Set(keywordMatches)].slice(0, 12); // Get unique keywords
+    // Get CV content
+    let cvContent;
+    try {
+      // Get CV content from CV service or mock endpoint
+      const cvResponse = await axios.get(`http://localhost:${PORT}/api/cv/${cv_id}`);
+      if (cvResponse.data && cvResponse.data.data) {
+        // Convert CV data to string format for analysis
+        cvContent = JSON.stringify(cvResponse.data.data);
+      } else {
+        throw new Error('CV data not found');
+      }
+    } catch (error) {
+      console.error('Error fetching CV data:', error);
+      cvContent = `This is a mock CV with ID ${cv_id} for testing purposes.`;
     }
     
-    // Generate a tailored cover letter
-    const coverLetter = generateCoverLetter(
-      job_description, 
-      company_name, 
-      recipient_name, 
-      position_title, 
-      keywords,
-      user_comments
-    );
+    let coverLetter, keyPoints, keywordsUsed;
     
-    // Extract key points from the cover letter
-    const keyPoints = extractKeyPoints(coverLetter, keywords);
-    
-    // Extract keywords used in the cover letter
-    const keywordsUsed = extractKeywordsUsed(coverLetter, keywords);
+    // If OpenAI API key is configured, use it for cover letter generation
+    if (OPENAI_API_KEY) {
+      console.log('Using OpenAI for cover letter generation');
+      
+      const aiResponse = await generateAICoverLetter(
+        cvContent,
+        job_description,
+        company_name,
+        recipient_name,
+        position_title,
+        user_comments
+      );
+      
+      coverLetter = aiResponse.cover_letter;
+      keyPoints = aiResponse.key_points;
+      keywordsUsed = aiResponse.keywords_used;
+    } else {
+      console.log('OpenAI API Key not configured, using mock implementation');
+      // Extract keywords from job description for mock implementation
+      let keywords = [];
+      if (job_description) {
+        // Extract potential keywords from job description
+        const keywordMatches = job_description.match(/\b\w{5,}\b/g) || [];
+        keywords = [...new Set(keywordMatches)].slice(0, 12); // Get unique keywords
+      }
+      
+      // Generate a tailored cover letter using mock implementation
+      coverLetter = generateCoverLetter(
+        job_description, 
+        company_name, 
+        recipient_name, 
+        position_title, 
+        keywords,
+        user_comments
+      );
+      
+      // Extract key points from the cover letter
+      keyPoints = extractKeyPoints(coverLetter, keywords);
+      
+      // Extract keywords used in the cover letter
+      keywordsUsed = extractKeywordsUsed(coverLetter, keywords);
+    }
     
     // Return the generated cover letter
     res.status(200).json({
@@ -872,6 +955,220 @@ function extractKeywordsUsed(coverLetter, keywords) {
   return defaultKeywords;
 }
 
+// OpenAI Integration Functions
+// Function to call OpenAI API
+async function callOpenAI(messages, temperature = 0.7, maxTokens = 1500) {
+  if (!OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is not configured');
+  }
+
+  try {
+    console.log(`Calling OpenAI API with model: ${OPENAI_MODEL}`);
+    
+    const response = await axios.post(
+      `${OPENAI_API_URL}/chat/completions`,
+      {
+        model: OPENAI_MODEL,
+        messages: messages,
+        temperature: temperature,
+        max_tokens: maxTokens,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
+        }
+      }
+    );
+
+    return response.data.choices[0].message.content;
+  } catch (error) {
+    console.error('OpenAI API Error:', error.response?.data || error.message);
+    throw new Error(`OpenAI API Error: ${error.response?.data?.error?.message || error.message}`);
+  }
+}
+
+// Function to analyze CV against job description
+async function analyzeCV(cvContent, jobDescription) {
+  const messages = [
+    {
+      role: "system",
+      content: `You are an expert CV analyst and career advisor. Your task is to analyze a CV against a job description and provide a detailed match analysis. 
+      Your analysis should include:
+      1. An overall match score (percentage)
+      2. Key strengths that match the job requirements
+      3. Areas for improvement or missing skills
+      4. Keywords found in both the CV and job description
+      5. Important keywords in the job description that are missing from the CV
+      Your response should be structured in JSON format.`
+    },
+    {
+      role: "user",
+      content: `Please analyze this CV against the following job description:
+      
+      CV Content:
+      ${cvContent}
+      
+      Job Description:
+      ${jobDescription}
+      
+      Provide your analysis in the following JSON format:
+      {
+        "match_score": number,
+        "overview": "string",
+        "strengths": ["string"],
+        "weaknesses": ["string"],
+        "keywords_found": ["string"],
+        "keywords_missing": ["string"]
+      }`
+    }
+  ];
+
+  const result = await callOpenAI(messages, 0.5);
+  
+  try {
+    // Parse the result as JSON and ensure required fields exist
+    const jsonResult = JSON.parse(result);
+    
+    // Ensure all required fields exist
+    const requiredFields = [
+      'match_score', 'overview', 'strengths', 
+      'weaknesses', 'keywords_found', 'keywords_missing'
+    ];
+    
+    for (const field of requiredFields) {
+      if (jsonResult[field] === undefined) {
+        jsonResult[field] = field.includes('keywords') || 
+                           field === 'strengths' || 
+                           field === 'weaknesses' 
+                           ? [] : field === 'match_score' ? 70 : '';
+      }
+    }
+    
+    return jsonResult;
+  } catch (error) {
+    console.error('Error parsing OpenAI response:', error);
+    throw new Error('Failed to parse AI analysis response');
+  }
+}
+
+// Function to optimize CV sections
+async function optimizeCV(cvSections, jobDescription) {
+  const messages = [
+    {
+      role: "system",
+      content: `You are an expert CV optimizer. Your task is to improve CV sections to better match a job description.
+      For each section, provide:
+      1. Optimized content that better aligns with the job requirements
+      2. A list of specific improvements made
+      Your optimizations should be professional, honest, and highlight relevant skills and experiences.`
+    },
+    {
+      role: "user",
+      content: `Please optimize the following CV sections for this job description:
+      
+      Job Description:
+      ${jobDescription}
+      
+      CV Sections:
+      ${JSON.stringify(cvSections, null, 2)}
+      
+      For each section, provide the optimized content and a list of improvements made.
+      Return your response as valid JSON in this format:
+      {
+        "optimized_sections": [
+          {
+            "section": "section_name",
+            "original_content": "original text",
+            "optimized_content": "improved text",
+            "improvements": ["improvement 1", "improvement 2"]
+          }
+        ]
+      }`
+    }
+  ];
+
+  const result = await callOpenAI(messages, 0.7, 2000);
+  
+  try {
+    return JSON.parse(result);
+  } catch (error) {
+    console.error('Error parsing OpenAI CV optimization response:', error);
+    throw new Error('Failed to parse AI optimization response');
+  }
+}
+
+// Function to generate a cover letter
+async function generateAICoverLetter(cvContent, jobDescription, companyName, recipientName, positionTitle, userComments) {
+  const messages = [
+    {
+      role: "system",
+      content: `You are an expert in professional communication and career services. Your task is to generate a tailored cover letter based on a CV and job description. 
+      The cover letter should:
+      1. Be professionally formatted with proper date, addressee, and signature
+      2. Highlight relevant experience and skills from the CV that match the job requirements
+      3. Express enthusiasm for the specific company and position
+      4. Sound natural and personalized, not generic
+      5. Include any specific points mentioned in the user's comments`
+    },
+    {
+      role: "user",
+      content: `Please generate a professional cover letter based on the following information:
+      
+      CV Content:
+      ${cvContent}
+      
+      Job Description:
+      ${jobDescription}
+      
+      Company Name: ${companyName || 'the Company'}
+      Recipient Name: ${recipientName || 'Hiring Manager'}
+      Position Title: ${positionTitle || 'the position'}
+      Additional Comments: ${userComments || ''}
+      
+      Return your response with:
+      - The complete formatted cover letter text
+      - A list of key points addressed in the letter
+      - A list of keywords from the job description that were used in the letter`
+    }
+  ];
+
+  try {
+    const result = await callOpenAI(messages, 0.7, 2000);
+    
+    // Extract the cover letter from the response
+    // For simplicity, we'll assume the entire response is the cover letter
+    // In a production environment, you might want to parse the response more carefully
+    
+    // Extract key points (this is a simplified implementation)
+    const keyPoints = [
+      "Highlighted relevant experience",
+      "Expressed enthusiasm for the role",
+      "Connected skills to job requirements",
+      "Demonstrated knowledge of the company",
+      "Included specific achievements"
+    ];
+    
+    // Extract keywords (simplified implementation)
+    let keywords = [];
+    if (jobDescription) {
+      const keywordMatches = jobDescription.match(/\b\w{5,}\b/g) || [];
+      keywords = [...new Set(keywordMatches)].slice(0, 10).map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      );
+    }
+    
+    return {
+      cover_letter: result,
+      key_points: keyPoints,
+      keywords_used: keywords
+    };
+  } catch (error) {
+    console.error('Error generating AI cover letter:', error);
+    throw new Error('Failed to generate AI cover letter');
+  }
+}
+
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
   res.json({
@@ -880,6 +1177,19 @@ app.get('/api/cors-test', (req, res) => {
     requestHeaders: req.headers,
     timestamp: new Date().toISOString()
   });
+});
+
+// Force real service connection with a specific header
+app.use((req, res, next) => {
+  // Check for a special header that forces use of the real service
+  if (req.headers['x-use-real-service'] === 'true' || req.query.use_real_service === 'true') {
+    const servicePath = req.path.split('/')[2]; // Extract service name from path
+    if (servicePath && SERVICE_URLS[servicePath]) {
+      console.log(`Forcing use of real service for ${req.method} ${req.originalUrl}`);
+      return createProxy(servicePath, SERVICE_URLS[servicePath])(req, res, next);
+    }
+  }
+  next();
 });
 
 // Mock CV endpoints
@@ -1008,6 +1318,82 @@ app.get('/api/cv/:id', (req, res) => {
     data: cv,
     timestamp: new Date().toISOString()
   });
+});
+
+// CV-specific optimization endpoint
+app.post('/api/cv/:id/optimize', (req, res) => {
+  console.log(`Received CV-specific optimization request for CV ID: ${req.params.id}`, req.body);
+  
+  try {
+    const cvId = req.params.id;
+    const jobDescription = req.body.jobDescription;
+    const companyName = req.body.companyName || '';
+    const position = req.body.position || '';
+    
+    if (!jobDescription) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Job description is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    console.log(`Optimizing CV ${cvId} with job description for ${position} at ${companyName}`);
+    
+    // Generate mock optimization results
+    const sections = [
+      {
+        section: 'summary',
+        original_content: 'Experienced professional with background in software development.',
+        optimized_content: `Results-driven professional with extensive experience in software development and ${position.toLowerCase() || 'relevant industry'}. Proven track record of delivering high-quality solutions that align with business objectives.`,
+        improvements: [
+          'Added specific industry focus',
+          'Emphasized results-oriented approach',
+          'Aligned with job requirements'
+        ]
+      },
+      {
+        section: 'experience_0',
+        original_content: 'Led development team and implemented new features.',
+        optimized_content: `Spearheaded development initiatives for ${companyName || 'industry-leading clients'}, successfully implementing new features that resulted in 30% improvement in system performance and enhanced user experience.`,
+        improvements: [
+          'Added quantifiable metrics',
+          'Enhanced description of leadership role',
+          'Highlighted outcomes and impact'
+        ]
+      },
+      {
+        section: 'skills',
+        original_content: 'Programming, Problem-solving, Communication',
+        optimized_content: 'JavaScript, React, Node.js, Python, SQL, Problem-solving, Team leadership, Technical documentation, Agile methodologies',
+        improvements: [
+          'Added specific technical skills',
+          'Included more relevant technologies',
+          'Expanded skill set to match job requirements'
+        ]
+      }
+    ];
+    
+    // Return optimization results
+    res.status(200).json({
+      status: 'success',
+      message: 'CV optimized successfully',
+      cv_id: cvId,
+      job_description: jobDescription,
+      company_name: companyName,
+      position: position,
+      optimized_sections: sections,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error in CV-specific optimization endpoint:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Create CV endpoint
@@ -1211,50 +1597,8 @@ app.use('/api/export', createProxy('export', SERVICE_URLS.export));
 
 // Modified AI service proxy to prioritize local implementations
 app.use('/api/ai', (req, res, next) => {
-  // Check if it's a job matching request - use our mock implementation
-  if (req.path.includes('/job-match/analyze')) {
-    console.log('Using mock implementation for job matching:', req.method, req.originalUrl);
-    // For GET requests or if this path doesn't exactly match our mock implementation
-    if (req.method !== 'POST') {
-      console.log('Non-POST request for job matching, forwarding to real service');
-      return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
-    }
-    
-    // This will be caught by our mock endpoint handler defined earlier
-    return next('route');
-  }
-  
-  // Check if it's an optimization request - use our mock implementation
-  if (req.path === '/optimize' || req.path === '/optimize/') {
-    console.log('Using mock implementation for CV optimization:', req.method, req.originalUrl);
-    if (req.method !== 'POST') {
-      console.log('Non-POST request for optimization, forwarding to real service');
-      return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
-    }
-    
-    // This will be caught by our mock endpoint handler defined earlier
-    return next('route');
-  }
-  
-  // Check if it's a cover letter request - use our mock implementation
-  if (req.path === '/cover-letter' || req.path === '/cover-letter/') {
-    console.log('Using mock implementation for cover letter generation:', req.method, req.originalUrl);
-    if (req.method !== 'POST') {
-      console.log('Non-POST request for cover letter, forwarding to real service');
-      return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
-    }
-    
-    // This will be caught by our mock endpoint handler defined earlier
-    return next('route');
-  }
-  
-  // For real AI endpoint access when specifically requested
-  if (req.headers['x-use-real-service'] === 'true' || req.query.use_real_service === 'true') {
-    console.log('Forcing use of real AI service due to header/query param:', req.originalUrl);
-    return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
-  }
-  
-  console.log('Forwarding AI service request to real service:', req.originalUrl);
+  // Remove all local mock implementations and always use the real AI service
+  console.log(`Forwarding AI service request to real service: ${req.originalUrl}`);
   return createProxy('ai', SERVICE_URLS.ai)(req, res, next);
 });
 

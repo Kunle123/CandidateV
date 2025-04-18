@@ -1,6 +1,124 @@
 # CandidateV API Gateway
 
-This service acts as the API Gateway for the CandidateV application, routing requests to the appropriate microservices.
+This is the API Gateway for the CandidateV application. It routes requests to the appropriate microservices and provides mock implementations for development purposes.
+
+## OpenAI Integration
+
+This API Gateway now includes OpenAI integration for CV analysis, optimization, and cover letter generation. When properly configured, it will use OpenAI's GPT models for intelligent CV processing. If no OpenAI API key is provided, it will fall back to mock implementations.
+
+### Features
+
+1. **CV-Job Matching Analysis**
+   - Endpoint: `POST /api/ai/job-match/analyze`
+   - Analyzes a CV against a job description
+   - Provides match score, strengths, weaknesses, and keyword analysis
+
+2. **CV Optimization**
+   - Endpoint: `POST /api/ai/optimize`
+   - Improves CV sections to better match job requirements
+   - Provides optimized content with specific improvements
+
+3. **Cover Letter Generation**
+   - Endpoint: `POST /api/ai/cover-letter`
+   - Creates tailored cover letters based on CV and job description
+   - Includes proper formatting, key points, and relevant keywords
+
+## Setup
+
+1. Clone the repository
+2. Install dependencies with `npm install`
+3. Copy `.env.example` to `.env` and configure environment variables:
+   ```
+   cp .env.example .env
+   ```
+4. Add your OpenAI API key to the `.env` file:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+5. Start the server:
+   ```
+   npm run dev
+   ```
+
+## Environment Variables
+
+- `PORT`: Server port (default: 3000)
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `OPENAI_MODEL`: OpenAI model to use (default: gpt-4-turbo-preview)
+- Service URLs for various microservices
+
+## API Usage Examples
+
+### Job Match Analysis
+
+```bash
+curl -X POST http://localhost:3000/api/ai/job-match/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cv_id": "cv-001",
+    "job_description": "We are looking for a software developer with experience in React and Node.js..."
+  }'
+```
+
+### CV Optimization
+
+```bash
+curl -X POST http://localhost:3000/api/ai/optimize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cv_id": "cv-001",
+    "targets": [
+      {
+        "section": "summary",
+        "content": "Experienced software developer with 5 years of experience."
+      },
+      {
+        "section": "experience_1",
+        "content": "Worked on various web applications using JavaScript."
+      }
+    ],
+    "job_description": "Looking for a React developer with experience in building modern web applications..."
+  }'
+```
+
+### Cover Letter Generation
+
+```bash
+curl -X POST http://localhost:3000/api/ai/cover-letter \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cv_id": "cv-001",
+    "job_description": "We are seeking a project manager with experience in agile methodologies...",
+    "company_name": "Tech Solutions Inc.",
+    "recipient_name": "HR Department",
+    "position_title": "Senior Project Manager",
+    "user_comments": "I particularly enjoy working in fast-paced environments."
+  }'
+```
+
+## Fallback to Mock Implementation
+
+If the OpenAI API key is not provided, the system will automatically fall back to mock implementations for all AI endpoints. This allows for development and testing without consuming OpenAI API credits.
+
+## Testing OpenAI Integration
+
+To test the OpenAI integration, follow these steps:
+
+1. Make sure you have set your OpenAI API key in the `.env` file:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+2. Run the test script:
+   ```
+   node test-openai.js
+   ```
+
+This script will:
+1. Test the connection to the OpenAI API
+2. Test the job match analysis endpoint to ensure it's working properly
+
+If the tests are successful, you should see confirmation messages and sample responses.
 
 ## Features
 
@@ -10,19 +128,6 @@ This service acts as the API Gateway for the CandidateV application, routing req
 - Health check endpoint
 - CORS handling
 - Basic request validation
-
-## Environment Variables
-
-The following environment variables are required:
-
-- `PORT`: Port for the service (default: 3000)
-- `AUTH_SERVICE_URL`: URL of the Authentication Service
-- `USER_SERVICE_URL`: URL of the User Management Service
-- `CV_SERVICE_URL`: URL of the CV Management Service
-- `EXPORT_SERVICE_URL`: URL of the Export Service
-- `AI_SERVICE_URL`: URL of the AI Service
-- `PAYMENT_SERVICE_URL`: URL of the Payment Service
-- `LOG_LEVEL`: Logging level (default: info)
 
 ## API Endpoints
 

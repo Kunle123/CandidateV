@@ -287,6 +287,21 @@ The docker-compose.yml file includes configurations for all services and databas
 ### Frontend
 - `API_GATEWAY_URL`: URL to the API Gateway
 
+### API Gateway Environment Variables
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| PORT | Port for the API Gateway service | Yes | 8000 |
+| AUTH_SERVICE_URL | URL of the Authentication Service | Yes | https://candidatev-auth-service.up.railway.app |
+| USER_SERVICE_URL | URL of the User Management Service | Yes | https://candidatev-user-service.up.railway.app |
+| CV_SERVICE_URL | URL of the CV Management Service | Yes | https://candidatev-cv-service.up.railway.app |
+| EXPORT_SERVICE_URL | URL of the Export Service | Yes | https://candidatev-export-service.up.railway.app |
+| AI_SERVICE_URL | URL of the AI Service | Yes | https://ai-service-production.up.railway.app |
+| PAYMENT_SERVICE_URL | URL of the Payment Service | Yes | https://candidatev-payment-service.up.railway.app |
+| OPENAI_API_KEY | OpenAI API key for AI features | No | sk-... |
+| OPENAI_MODEL | OpenAI model to use | No | gpt-4-turbo-preview |
+| LOG_LEVEL | Logging level | No | info |
+
 ## 5. Post-Deployment Configuration
 
 ### Database Migrations
