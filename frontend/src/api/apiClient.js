@@ -121,6 +121,19 @@ if (config.features.requestInterceptors) {
       // Debug log the original URL
       console.log(`🔍 Original request URL: ${request.url}`);
       
+      // CRITICAL FIX: If the URL already contains '/api/api/', replace with '/api/'
+      if (request.url && request.url.includes('/api/api/')) {
+        console.log(`⚠️ Fixing duplicate /api/ prefix in URL: ${request.url}`);
+        request.url = request.url.replace('/api/api/', '/api/');
+      }
+      
+      // More general pattern matching for any duplicate api patterns
+      const apiDuplicatePattern = /^\/?api\/+api\/+/i;
+      if (request.url && apiDuplicatePattern.test(request.url)) {
+        console.log(`⚠️ Fixing general duplicate api prefix in URL: ${request.url}`);
+        request.url = request.url.replace(apiDuplicatePattern, '/api/');
+      }
+      
       // Ensure API paths are correctly formatted for Railway API Gateway
       if (request.url && !request.url.startsWith('/api/') && !request.url.startsWith('api/') && !request.url.startsWith('http')) {
         // Remove any leading slashes to prevent double slashes
