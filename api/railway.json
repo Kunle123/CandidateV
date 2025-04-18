@@ -12,7 +12,7 @@
     "headers": [
       {
         "key": "Access-Control-Allow-Origin",
-        "value": "https://candidate-v.vercel.app"
+        "value": "https://candidate-v.vercel.app, https://candidate-oyfl01pgt-kunle-ibiduns-projects.vercel.app"
       },
       {
         "key": "Access-Control-Allow-Methods",

@@ -26,7 +26,7 @@ const SERVICE_URLS = {
 
 // CORS configuration
 const corsOptions = {
-  origin: ['https://candidate-v.vercel.app', 'http://localhost:3000', 'http://localhost:5173', '*'],
+  origin: ['https://candidate-v.vercel.app', 'https://candidate-oyfl01pgt-kunle-ibiduns-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173', '*'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
