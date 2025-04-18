@@ -119,7 +119,16 @@ const JobOptimizationPanel = ({ cvId, cvData }) => {
       // Call the AI service to optimize the CV - Use apiService instead of axios
       const response = await apiService.post('/ai/optimize', {
         cv_id: cvId,
-        targets: targets,
+        targets: targets.length > 0 ? targets : [
+          // Provide default target if no sections were found to optimize
+          {
+            section: 'default',
+            content: 'Please optimize my CV for the job position.',
+            target_job: positionTitle || undefined,
+            target_industry: undefined,
+            tone: 'professional',
+          }
+        ],
         job_description: jobDescription,
         user_comments: userComments,
       });

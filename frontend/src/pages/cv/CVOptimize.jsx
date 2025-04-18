@@ -317,7 +317,16 @@ const CVOptimize = () => {
       // Call the AI service to optimize the CV
       const response = await apiService.post('/ai/optimize', {
         cv_id: selectedCVId,
-        targets: targets,
+        targets: targets.length > 0 ? targets : [
+          // Provide default target if no sections were found to optimize
+          {
+            section: 'default',
+            content: 'Please optimize my CV for the job position.',
+            target_job: positionTitle || undefined,
+            target_industry: undefined,
+            tone: 'professional',
+          }
+        ],
         job_description: jobDescription,
         user_comments: userComments,
       });

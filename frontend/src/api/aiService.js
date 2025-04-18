@@ -22,11 +22,24 @@ const aiService = {
   },
 
   // Optimize specific sections of a CV
-  async optimizeCV(cvId, targets) {
+  async optimizeCV(cvId, targets, jobDescription = '', userComments = '') {
     try {
+      // Ensure targets is an array and not empty
+      const validTargets = Array.isArray(targets) && targets.length > 0 
+        ? targets 
+        : [
+            {
+              section: 'default',
+              content: 'Please optimize my CV for the job position.',
+              tone: 'professional',
+            }
+          ];
+          
       const response = await apiClient.post('ai/optimize', {
         cv_id: cvId,
-        targets: targets
+        targets: validTargets,
+        job_description: jobDescription,
+        user_comments: userComments
       });
       return { success: true, data: response.data };
     } catch (error) {

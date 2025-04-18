@@ -85,12 +85,12 @@ const getBaseUrl = () => {
   // Development mode fallback
   if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
     console.log('🔧 Using local development API URL');
-    return 'http://localhost:8000';
+    return 'http://localhost:3000/api';
   }
   
   // Last resort fallback for production
   console.log('🔧 Using default production API URL');
-  return 'https://api-gateway-production.up.railway.app';
+  return 'https://api-gw-production.up.railway.app/api';
 };
 
 // Get the correct base URL based on environment

@@ -10,7 +10,7 @@ const environment = isProduction ? 'production' : 'development';
 // Base URLs for different environments
 const BASE_URLS = {
   development: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
-  production: 'https://api.candidatev.com/api',
+  production: 'https://api-gw-production.up.railway.app/api',
   test: 'http://localhost:3000/api'
 };
 
