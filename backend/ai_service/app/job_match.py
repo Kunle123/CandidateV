@@ -517,6 +517,7 @@ async def job_match_analyze(
     user_token: str = Depends(oauth2_scheme) # Keep user token
 ):
     """Perform a detailed job match analysis."""
+    logger.info(f"Entering job_match_analyze for cv_id: {request.cv_id}")
     
     # Check if service token is configured
     if not CV_SERVICE_AUTH_TOKEN:
