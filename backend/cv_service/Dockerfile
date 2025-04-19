@@ -26,8 +26,8 @@ COPY . .
 RUN echo '#!/bin/bash\n\
 PORT="${PORT:-8003}"\n\
 echo "Starting server on port $PORT"\n\
-# Use --host :: to listen on IPv6 (and likely IPv4 as well) for Railway private network
-exec uvicorn app.main:app --host :: --port $PORT --workers ${UVICORN_WORKERS:-1}\n\
+# Reverted host back to 0.0.0.0 as :: caused health check failure
+exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-1}\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Command to run the application
