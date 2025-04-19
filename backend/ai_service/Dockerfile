@@ -23,5 +23,6 @@ COPY . .
 EXPOSE 8002
 
 # Command to run the application
-# Use host :: for Railway internal networking and port 8002 to match proxy config
-CMD ["uvicorn", "app.main:app", "--host", "::", "--port", "8002"] 
+# Use host :: for Railway internal networking and port 8002
+# Reference the app object directly in main.py (not app/main.py)
+CMD ["uvicorn", "main:app", "--host", "::", "--port", "8002"] 
