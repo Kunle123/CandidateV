@@ -6,7 +6,7 @@ class LogConfig(BaseModel):
     """Logging configuration"""
     LOGGER_NAME: str = "payment_service"
     LOG_FORMAT: str = "%(levelprefix)s %(asctime)s - %(name)s - %(message)s"
-    LOG_LEVEL: str = "INFO"
+    LOG_LEVEL: str = "DEBUG"
 
     # Options: ["console", "file", "both"]
     LOG_OUTPUT: str = os.getenv("LOG_OUTPUT", "console")
