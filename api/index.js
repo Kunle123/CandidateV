@@ -1563,47 +1563,18 @@ app.use('/api/auth', (req, res, next) => {
 
 app.use('/api/users', createProxy('user', SERVICE_URLS.user));
 
-// Modified CV proxy to prioritize local implementations except for AI optimization
+// Proxy requests for /api/cv, except for AI-related paths
 app.use('/api/cv', (req, res, next) => {
-  // Pass through AI optimization requests to the real service
+  // Pass through AI optimization requests directly to the dedicated AI proxy below if needed,
+  // OR handle them within the CV service itself if it calls the AI service.
+  // For now, let's assume non-AI CV requests go to the CV service proxy.
   if (req.path.includes('/optimize') || req.path.includes('/ai') || req.originalUrl.includes('/optimize') || req.originalUrl.includes('/ai')) {
-    console.log('Forwarding AI optimization request to the real CV service:', req.originalUrl);
-    return createProxy('cv', SERVICE_URLS.cv)(req, res, next);
+    console.log('Skipping CV proxy for AI-related path:', req.originalUrl);
+     return createProxy('cv', SERVICE_URLS.cv)(req, res, next); // Or next() if AI routes handled separately
   }
-  
-  // Extract the path parts
-  const pathParts = req.path.split('/').filter(Boolean);
-  const isRootPath = pathParts.length === 0;
-  const hasId = pathParts.length > 0;
-  
-  // For other CV endpoints, use our local mock implementations
-  // Use next('route') only for paths that we've already defined as middleware above
-  if (req.method === 'GET' && isRootPath) {
-    // The root CV endpoint (list CVs) is handled by our mock implementation
-    console.log('Using mock implementation for GET /api/cv');
-    return next('route');
-  } else if (req.method === 'GET' && hasId && !pathParts[0].includes('optimize') && !pathParts[0].includes('ai')) {
-    // The CV detail endpoint is handled by our mock implementation unless it's an optimization request
-    console.log(`Using mock implementation for GET /api/cv/${pathParts[0]}`);
-    return next('route');
-  } else if (req.method === 'POST' && isRootPath) {
-    // The create CV endpoint is handled by our mock implementation
-    console.log('Using mock implementation for POST /api/cv');
-    return next('route');
-  } else if (req.method === 'PUT' && hasId) {
-    // The update CV endpoint is handled by our mock implementation
-    console.log(`Using mock implementation for PUT /api/cv/${pathParts[0]}`);
-    return next('route');
-  } else if (req.method === 'DELETE' && hasId) {
-    // The delete CV endpoint is handled by our mock implementation
-    console.log(`Using mock implementation for DELETE /api/cv/${pathParts[0]}`);
-    return next('route');
-  }
-  
-  // Log the request that's being forwarded
-  console.log(`Forwarding request to real CV service: ${req.method} ${req.originalUrl}`);
-  
-  // For anything else, try the real service
+
+  // Proxy all other /api/cv requests to the CV service
+  console.log(`Proxying CV request to real CV service: ${req.method} ${req.originalUrl}`);
   return createProxy('cv', SERVICE_URLS.cv)(req, res, next);
 });
 
