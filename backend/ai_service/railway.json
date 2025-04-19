@@ -1,26 +1,20 @@
 {
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "pip install -r requirements.txt && python -m spacy download en_core_web_sm"
+    "builder": "NIXPACKS"
   },
   "deploy": {
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3,
-    "startCommand": "python main.py"
-  },
-  "healthcheck": {
-    "path": "/api/health",
-    "interval": 30,
-    "timeout": 5,
-    "retries": 3
+    "startCommand": "uvicorn app.main:app --host :: --port 8002"
   },
   "environment": {
-    "PORT": "8001",
+    "PORT": "8002",
     "variables": {
-      "CV_SERVICE_URL": "https://candidatev-cv-service.up.railway.app"
+      "CV_SERVICE_URL": "http://candidatev.railway.internal:8003"
     },
     "secrets": [
-      "OPENAI_API_KEY"
+      "OPENAI_API_KEY",
+      "CV_SERVICE_AUTH_TOKEN"
     ]
   }
 } 
