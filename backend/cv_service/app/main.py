@@ -15,7 +15,7 @@ import logging
 import sys
 
 # Import database and models
-from .database import get_db_session, is_sqlite
+from .database import get_db_session, is_sqlite, engine, Base
 from . import models
 
 # Configure logging
@@ -493,4 +493,18 @@ async def database_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An internal server error occurred"},
-    ) 
+    )
+
+# --- Database Table Creation --- 
+# Ensure tables are created on startup
+# NOTE: In production, using Alembic for migrations is recommended
+@app.on_event("startup")
+def startup_event():
+    logger.info("Running startup event: Creating database tables if they don't exist...")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables checked/created successfully.")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {e}", exc_info=True)
+        # Depending on the error, you might want to prevent startup
+# --- End Database Table Creation --- 
