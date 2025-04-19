@@ -72,10 +72,12 @@ class DetailedJobMatchResponse(BaseModel):
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=0.5, max=10))
 async def fetch_cv_data(cv_id: str, token: str) -> Dict[str, Any]:
     """Fetch CV data from the CV service."""
+    fetch_id = f"fetch-{cv_id[:8]}" # Short ID for fetch logging
+    logger.info(f"[{fetch_id}] Starting fetch_cv_data")
     
     # For testing: Return mock data if the cv_id is test-cv-id
     if cv_id == "test-cv-id":
-        logger.info("Using mock CV data for test-cv-id")
+        logger.info(f"[{fetch_id}] Using mock CV data for test-cv-id")
         return {
             "id": "test-cv-id",
             "title": "Test CV for Job Matching",
@@ -139,28 +141,52 @@ async def fetch_cv_data(cv_id: str, token: str) -> Dict[str, Any]:
     # Construct the full URL robustly
     target_path = f"api/cv/{cv_id}"
     full_url = urljoin(base_url, target_path)
-    logger.info(f"Constructed CV fetch URL: {full_url}")
+    logger.info(f"[{fetch_id}] Constructed CV fetch URL: {full_url}")
 
     # Normal flow for non-test CV IDs
+    response = None
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {"Authorization": f"Bearer {token}"}
+            logger.info(f"[{fetch_id}] Making GET request to CV service...")
             response = await client.get(full_url, headers=headers)
+            logger.info(f"[{fetch_id}] Received response from CV service. Status: {response.status_code}")
             
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch CV data from {full_url}: {response.status_code} {response.text}")
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Failed to fetch CV data from CV service: {response.status_code}"
-                )
+            # Log response headers for debugging if needed
+            # logger.debug(f"[{fetch_id}] CV Service Response Headers: {response.headers}")
+
+            response.raise_for_status() # Raise exception for 4xx/5xx status codes
             
-            logger.info(f"Successfully fetched CV data from {full_url}")
-            return response.json()
+            logger.info(f"[{fetch_id}] Attempting to parse JSON response body...")
+            # --- Potential OOM crash point --- 
+            json_response = response.json()
+            # ----------------------------------
+            logger.info(f"[{fetch_id}] Successfully parsed JSON response.")
+            logger.debug(f"[{fetch_id}] Parsed CV data snippet: {str(json_response)[:200]}...")
+            return json_response
+            
+    except httpx.HTTPStatusError as e:
+        # Log specific HTTP errors from the CV service
+        error_detail = e.response.text[:500] if e.response else "No response body"
+        logger.error(f"[{fetch_id}] HTTP error fetching CV data from {full_url}: Status={e.response.status_code}, Detail={error_detail}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch CV data from CV service: {e.response.status_code}"
+        )
     except httpx.RequestError as e:
-        logger.error(f"Error fetching CV data from {full_url}: {str(e)}")
+        # Log connection errors
+        logger.error(f"[{fetch_id}] RequestError fetching CV data from {full_url}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Error communicating with CV service: {str(e)}"
+        )
+    except Exception as e:
+        # Catch other potential errors (like JSON parsing errors, although response.json() might raise specific ones)
+        response_snippet = response.text[:500] if response else "No response object"
+        logger.error(f"[{fetch_id}] Unexpected error processing CV response from {full_url}: {str(e)}. Response Snippet: {response_snippet}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing response from CV service: {str(e)}"
         )
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=0.5, max=10))
