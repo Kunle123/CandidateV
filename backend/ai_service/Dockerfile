@@ -20,7 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose the port the app runs on
-EXPOSE 8004
+EXPOSE 8002
 
 # Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8004"] 
+# Use host :: for Railway internal networking and port 8002 to match proxy config
+CMD ["uvicorn", "app.main:app", "--host", "::", "--port", "8002"] 
