@@ -1,3 +1,4 @@
+console.log('--- api/utils.js loaded ---');
 import apiClient from './apiClient';
 
 /**

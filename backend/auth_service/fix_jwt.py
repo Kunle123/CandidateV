@@ -7,6 +7,8 @@ import sys
 import subprocess
 import os
 
+print("--- fix_jwt.py executed ---")
+
 def check_module_installation():
     """Check if PyJWT is installed and install it if needed"""
     try:
