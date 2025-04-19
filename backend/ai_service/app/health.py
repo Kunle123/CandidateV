@@ -54,6 +54,7 @@ async def health_check():
     
     # Check CV Service connection
     cv_service_url = os.getenv("CV_SERVICE_URL", "http://localhost:8002")
+    logger.info(f"Health check attempting to use CV service URL: '{cv_service_url}'")
     try:
         # Try to connect to the CV service health endpoint
         async with httpx.AsyncClient(timeout=5.0) as client:
