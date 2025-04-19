@@ -9,6 +9,7 @@ import json
 import httpx
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
+from urllib.parse import urljoin
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -60,21 +61,33 @@ class OptimizationResponse(BaseModel):
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=0.5, max=10))
 async def fetch_cv_data(cv_id: str, token: str) -> Dict[str, Any]:
     """Fetch CV data from the CV service."""
+    
+    # Ensure the base URL has a trailing slash for urljoin
+    base_url = CV_SERVICE_URL
+    if not base_url.endswith('/'):
+        base_url += '/'
+        
+    # Construct the full URL robustly
+    target_path = f"api/cv/{cv_id}"
+    full_url = urljoin(base_url, target_path)
+    logger.info(f"Constructed CV fetch URL: {full_url}")
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {"Authorization": f"Bearer {token}"}
-            response = await client.get(f"{CV_SERVICE_URL}/api/cv/{cv_id}", headers=headers)
+            response = await client.get(full_url, headers=headers)
             
             if response.status_code != 200:
-                logger.error(f"Failed to fetch CV data: {response.status_code} {response.text}")
+                logger.error(f"Failed to fetch CV data from {full_url}: {response.status_code} {response.text}")
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail=f"Failed to fetch CV data from CV service: {response.status_code}"
                 )
             
+            logger.info(f"Successfully fetched CV data from {full_url}")
             return response.json()
     except httpx.RequestError as e:
-        logger.error(f"Error fetching CV data: {str(e)}")
+        logger.error(f"Error fetching CV data from {full_url}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Error communicating with CV service: {str(e)}"
