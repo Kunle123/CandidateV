@@ -146,7 +146,7 @@ const cvService = {
     formData.append('file', file); // The backend CV service needs to expect a field named 'file'
 
     try {
-      const response = await apiService.post('cv/upload', formData, {
+      const response = await apiService.post('cv', formData, {
         headers: {
           ...getAuthHeader(),
           // 'Content-Type': 'multipart/form-data' // Let browser set this automatically for FormData
