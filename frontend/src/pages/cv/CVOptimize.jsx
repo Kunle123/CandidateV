@@ -468,7 +468,7 @@ const CVOptimize = () => {
         const response = await cvService.uploadCV(file);
         
         // Assuming the response contains the new CV object with its ID
-        const newCVId = response?.id;
+        const newCVId = response?.data?.id;
         
         if (!newCVId) {
           throw new Error('Upload response did not contain a valid CV ID.');
