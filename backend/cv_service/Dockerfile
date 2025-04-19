@@ -22,11 +22,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY . .
 
-# Create a startup script
+# Create and configure start script
 RUN echo '#!/bin/bash\n\
 PORT="${PORT:-8003}"\n\
 echo "Starting server on port $PORT"\n\
-exec uvicorn app.main:app --host 0.0.0.0 --port $PORT\n\
+# Use --host :: to listen on IPv6 (and likely IPv4 as well) for Railway private network
+exec uvicorn app.main:app --host :: --port $PORT --workers ${UVICORN_WORKERS:-1}\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Command to run the application
