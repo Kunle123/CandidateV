@@ -514,7 +514,7 @@ async def job_match(
 @router.post("/job-match/analyze", response_model=DetailedJobMatchResponse)
 async def job_match_analyze(
     request: DetailedJobMatchRequest,
-    user_token: str = Depends(oauth2_scheme) # Keep user token
+    # user_token: str = Depends(oauth2_scheme) # Temporarily commented out for debugging
 ):
     """Perform a detailed job match analysis."""
     request_id = request.cv_id # Use cv_id for simple request tracking
