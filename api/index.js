@@ -236,17 +236,31 @@ app.post('/api/ai/job-match/analyze', async (req, res) => {
     // First, get the CV content from our API
     let cvContent;
     try {
-      // Get CV content from CV service or mock endpoint
-      const cvResponse = await axios.get(`http://localhost:${PORT}/api/cv/${cv_id}`);
+      console.log(`Fetching CV data from CV service for ID: ${cv_id}`);
+      // Use the actual CV service URL
+      const cvServiceUrl = `${SERVICE_URLS.cv}/api/cv/${cv_id}`;
+      console.log(`Calling real CV service at: ${cvServiceUrl}`);
+      const cvResponse = await axios.get(cvServiceUrl);
+
       if (cvResponse.data && cvResponse.data.data) {
         // Convert CV data to string format for analysis
         cvContent = JSON.stringify(cvResponse.data.data);
+        console.log('CV content preview:', cvContent.substring(0, 300) + '...');
       } else {
         throw new Error('CV data not found');
       }
     } catch (error) {
-      console.error('Error fetching CV data:', error);
-      cvContent = `This is a mock CV with ID ${cv_id} for testing purposes.`;
+      console.error('Error fetching or processing CV data for AI analysis:', error);
+      // REMOVED: Fallback logic if needed, but better to return error
+
+      // Return an error response to the client
+      return res.status(500).json({
+        status: 'error',
+        message: 'Error retrieving or processing CV data for analysis',
+        error: error.message,
+        cv_id: cv_id,
+        timestamp: new Date().toISOString()
+      });
     }
     
     let result;
@@ -582,8 +596,12 @@ app.post('/api/ai/cover-letter', async (req, res) => {
     // Get CV content
     let cvContent;
     try {
-      // Get CV content from CV service or mock endpoint
-      const cvResponse = await axios.get(`http://localhost:${PORT}/api/cv/${cv_id}`);
+      // Get CV content from the actual CV service
+      console.log(`Fetching CV data from CV service for ID: ${cv_id}`);
+      const cvServiceUrl = `${SERVICE_URLS.cv}/api/cv/${cv_id}`;
+      console.log(`Calling real CV service at: ${cvServiceUrl}`);
+      const cvResponse = await axios.get(cvServiceUrl);
+      
       if (cvResponse.data && cvResponse.data.data) {
         // Convert CV data to string format for analysis
         cvContent = JSON.stringify(cvResponse.data.data);
@@ -591,8 +609,15 @@ app.post('/api/ai/cover-letter', async (req, res) => {
         throw new Error('CV data not found');
       }
     } catch (error) {
-      console.error('Error fetching CV data:', error);
-      cvContent = `This is a mock CV with ID ${cv_id} for testing purposes.`;
+      console.error('Error fetching CV data for AI processing:', error);
+      // Instead, return an error response to the client
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to retrieve CV data for processing',
+        error: error.message,
+        cv_id: cv_id,
+        timestamp: new Date().toISOString()
+      });
     }
     
     let coverLetter, keyPoints, keywordsUsed;
@@ -1157,29 +1182,14 @@ async function generateAICoverLetter(cvContent, jobDescription, companyName, rec
     console.error('Error generating AI cover letter:', error);
     console.error('API response or error:', error.response?.data || error.message);
     
-    // Create a fallback cover letter using our mock generator
-    const fallbackKeywords = jobDescription 
-      ? jobDescription.match(/\b\w{5,}\b/g) || []
-      : [];
-      
-    const fallbackCoverLetter = generateCoverLetter(
-      jobDescription,
-      companyName,
-      recipientName,
-      positionTitle,
-      fallbackKeywords,
-      userComments
-    );
-    
-    const fallbackKeyPoints = extractKeyPoints(fallbackCoverLetter, fallbackKeywords);
-    const fallbackKeywordsUsed = extractKeywordsUsed(fallbackCoverLetter, fallbackKeywords);
-    
-    return {
-      cover_letter: fallbackCoverLetter,
-      key_points: fallbackKeyPoints,
-      keywords_used: fallbackKeywordsUsed,
-      is_fallback: true
-    };
+    // Instead, return an error response to the client
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to generate cover letter',
+      error: error.message,
+      cv_id: cv_id,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 
