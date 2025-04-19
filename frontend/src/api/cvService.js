@@ -138,6 +138,25 @@ const cvService = {
       console.error(`Error sharing CV with ID ${id}:`, error);
       throw error;
     }
+  },
+
+  // Upload a new CV from a file
+  uploadCV: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file); // The backend CV service needs to expect a field named 'file'
+
+    try {
+      const response = await apiService.post('cv/upload', formData, {
+        headers: {
+          ...getAuthHeader(),
+          // 'Content-Type': 'multipart/form-data' // Let browser set this automatically for FormData
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading CV:', error);
+      throw error;
+    }
   }
 };
 

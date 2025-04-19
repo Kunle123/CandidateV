@@ -455,35 +455,55 @@ const CVOptimize = () => {
     navigate(`/cv/edit/${selectedCVId}`);
   };
   
-  // Add file upload handler
-  const handleFileUpload = (event) => {
+  // Modified file upload handler
+  const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (file) {
       setUploadedFile(file);
-      
-      // Simulate processing the uploaded file
       setIsUploading(true);
-      
-      // In a real implementation, you would call an API to parse the CV
-      // For now, we'll just simulate the upload process
-      setTimeout(() => {
-        setIsUploading(false);
+      setError(null); // Clear previous errors
+
+      try {
+        // Call the actual API endpoint to upload the CV
+        const response = await cvService.uploadCV(file);
+        
+        // Assuming the response contains the new CV object with its ID
+        const newCVId = response?.id;
+        
+        if (!newCVId) {
+          throw new Error('Upload response did not contain a valid CV ID.');
+        }
+
+        setSelectedCVId(newCVId); // Use the REAL ID from the backend
+
         toast({
-          title: 'CV Uploaded',
-          description: `${file.name} has been uploaded successfully.`,
+          title: 'CV Uploaded Successfully',
+          description: `Your CV "${file.name}" has been processed and saved. ID: ${newCVId}`,
           status: 'success',
           duration: 5000,
           isClosable: true,
         });
-        
-        // In a real implementation, the API would parse the CV and return the data
-        // For now, we'll just set a mock CV ID
-        const mockCVId = 'uploaded-cv-' + Date.now();
-        setSelectedCVId(mockCVId);
-        
-        // Proceed to next step
+
+        // Proceed to the next step
         setActiveStep(1);
-      }, 1500);
+        // Optionally, load the full CV data for the next steps if needed
+        // loadCV(newCVId);
+
+      } catch (err) {
+        console.error('Upload failed:', err);
+        setError('Failed to upload or process the CV. Please try again.');
+        toast({
+          title: 'Upload Failed',
+          description: err.message || 'An unexpected error occurred during upload.',
+          status: 'error',
+          duration: 7000,
+          isClosable: true,
+        });
+        setUploadedFile(null); // Clear the file state on error
+        setSelectedCVId(null);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
   
