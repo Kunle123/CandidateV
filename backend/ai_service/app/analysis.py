@@ -32,6 +32,9 @@ if OPENAI_API_KEY:
 
 # CV Service URL
 CV_SERVICE_URL = os.getenv("CV_SERVICE_URL", "http://localhost:8002")
+CV_SERVICE_AUTH_TOKEN = os.getenv("CV_SERVICE_AUTH_TOKEN")
+if not CV_SERVICE_AUTH_TOKEN:
+    logger.warning("CV_SERVICE_AUTH_TOKEN environment variable is not set. AI service cannot authenticate to CV service.")
 
 # Pydantic models for request and response
 class CVAnalysisRequest(BaseModel):
@@ -173,101 +176,63 @@ async def analyze_cv_with_openai(cv_data: Dict[str, Any]) -> Dict[str, Any]:
 @router.post("/analyze", response_model=CVAnalysisResponse)
 async def analyze_cv(
     request: CVAnalysisRequest,
-    token: str = Depends(oauth2_scheme)
+    user_token: str = Depends(oauth2_scheme) # Keep user token for potential future endpoint protection
 ):
     """
     Analyze a CV using AI to provide feedback and suggestions for improvement.
     """
-    # For testing purposes, return mock data if CV ID is "test-cv-id"
-    if request.cv_id == "test-cv-id" or not client:
-        logger.info(f"Using mock data for analysis with cv_id={request.cv_id}")
-        
-        # Create a mock analysis result
-        mock_result = {
-            "score": 7.5,
-            "feedback": [
-                {"section": "summary", "comments": "Good overview of skills and experience, but could be more specific", "score": 7.0},
-                {"section": "experience", "comments": "Strong experience section with clear achievements", "score": 8.0},
-                {"section": "education", "comments": "Well-formatted education section", "score": 8.5},
-                {"section": "skills", "comments": "Good range of technical skills", "score": 7.5}
-            ],
-            "improvement_suggestions": [
-                {"section": "summary", "suggestion": "Add more specific achievements with metrics", "importance": "high"},
-                {"section": "experience", "suggestion": "Quantify achievements with numbers and percentages", "importance": "medium"},
-                {"section": "skills", "suggestion": "Organize skills by category", "importance": "low"}
-            ],
-            "strengths": [
-                "Strong technical background",
-                "Clear presentation of work history",
-                "Good educational qualifications"
-            ],
-            "weaknesses": [
-                "Lack of quantifiable achievements",
-                "Summary could be more impactful",
-                "Missing some industry-specific keywords"
-            ],
-            "industry_fit": [
-                {"industry": "Software Development", "fit_score": 8.0, "reasons": "Strong technical skills and relevant experience"},
-                {"industry": "Data Science", "fit_score": 6.5, "reasons": "Has some relevant skills but could expand on data analysis experience"}
-            ],
-            "keywords_analysis": {
-                "found_keywords": ["Python", "JavaScript", "React", "development"],
-                "missing_keywords": ["CI/CD", "cloud", "AWS", "agile"],
-                "recommendation": "Add more industry-specific keywords to pass ATS screening"
-            }
-        }
-        
-        # Prepare the mock response
-        response = CVAnalysisResponse(
-            cv_id=request.cv_id,
-            analysis=AnalysisResult(**mock_result),
-            timestamp=datetime.utcnow()
+    # Check if service token is configured
+    if not CV_SERVICE_AUTH_TOKEN:
+        logger.error("CV_SERVICE_AUTH_TOKEN not set. Cannot fetch CV data.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Internal configuration error: CV Service authentication token missing."
         )
         
-        return response
-    
+    # Fetch CV data using the service token
     try:
-        # Fetch CV data from the CV service
-        cv_data = await fetch_cv_data(request.cv_id, token)
-        
-        # Analyze the CV using OpenAI
-        analysis_result = await analyze_cv_with_openai(cv_data)
-        
-        # Prepare the response
-        response = CVAnalysisResponse(
-            cv_id=request.cv_id,
-            analysis=AnalysisResult(**analysis_result),
-            timestamp=datetime.utcnow()
+        # Pass the SERVICE token, not the user's token
+        cv_data_response = await fetch_cv_data(request.cv_id, CV_SERVICE_AUTH_TOKEN) 
+    except HTTPException as e:
+        # Propagate HTTP errors from fetch_cv_data (like 502 Bad Gateway)
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during CV data fetch: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error fetching CV data: {str(e)}"
         )
         
-        return response
+    # Extract the actual CV data dictionary from the response 
+    # (Assuming fetch_cv_data returns the parsed JSON response)
+    cv_data = cv_data_response 
+
+    # Check if OpenAI client is available before proceeding
+    if not client:
+        logger.error("OpenAI client not available.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI service is not configured or unavailable."
+        )
+
+    # Analyze CV data with OpenAI
+    try:
+        analysis_data = await analyze_cv_with_openai(cv_data)
+    except HTTPException as e:
+        # Propagate HTTP errors from analyze_cv_with_openai
+        raise e
     except Exception as e:
-        logger.error(f"Error in analyze_cv: {str(e)}")
-        # Return mock data as fallback in case of errors
-        fallback_result = {
-            "score": 6.0,
-            "feedback": [
-                {"section": "overall", "comments": "Error occurred during analysis", "score": 6.0}
-            ],
-            "improvement_suggestions": [
-                {"section": "overall", "suggestion": "Try again later or contact support", "importance": "medium"}
-            ],
-            "strengths": [
-                "Unable to analyze strengths due to error"
-            ],
-            "weaknesses": [
-                "Unable to analyze weaknesses due to error"
-            ],
-            "industry_fit": [],
-            "keywords_analysis": {
-                "found_keywords": [],
-                "missing_keywords": [],
-                "recommendation": "Unable to provide keyword analysis due to error"
-            }
-        }
-        
-        return CVAnalysisResponse(
-            cv_id=request.cv_id,
-            analysis=AnalysisResult(**fallback_result),
-            timestamp=datetime.utcnow()
-        ) 
+        logger.error(f"Unexpected error during OpenAI analysis: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error analyzing CV: {str(e)}"
+        )
+
+    # Structure the final response
+    response = CVAnalysisResponse(
+        cv_id=request.cv_id,
+        analysis=AnalysisResult(**analysis_data), # Ensure data fits the model
+        timestamp=datetime.utcnow()
+    )
+
+    return response 

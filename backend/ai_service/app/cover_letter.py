@@ -32,6 +32,9 @@ if OPENAI_API_KEY:
 
 # CV Service URL
 CV_SERVICE_URL = os.getenv("CV_SERVICE_URL", "http://localhost:8002")
+CV_SERVICE_AUTH_TOKEN = os.getenv("CV_SERVICE_AUTH_TOKEN")
+if not CV_SERVICE_AUTH_TOKEN:
+    logger.warning("CV_SERVICE_AUTH_TOKEN environment variable is not set. AI service cannot authenticate to CV service.")
 
 # Pydantic models for request and response
 class CoverLetterRequest(BaseModel):
@@ -293,25 +296,58 @@ Sincerely,
 @router.post("/cover-letter", response_model=CoverLetterResponse)
 async def create_cover_letter(
     request: CoverLetterRequest,
-    token: str = Depends(oauth2_scheme)
+    user_token: str = Depends(oauth2_scheme) # Keep user token
 ):
-    """
-    Generate a personalized cover letter based on a CV and job description.
-    """
-    # Fetch CV data from the CV service
-    cv_data = await fetch_cv_data(request.cv_id, token)
+    """Generate a cover letter based on a CV and job description."""
     
-    # Generate the cover letter using OpenAI
-    cover_letter_result = await generate_cover_letter(
-        cv_data=cv_data,
-        job_description=request.job_description,
-        user_comments=request.user_comments,
-        tone=request.tone,
-        company_name=request.company_name,
-        recipient_name=request.recipient_name,
-        position_title=request.position_title
-    )
-    
+    # Check if service token is configured
+    if not CV_SERVICE_AUTH_TOKEN:
+        logger.error("CV_SERVICE_AUTH_TOKEN not set. Cannot fetch CV data.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Internal configuration error: CV Service authentication token missing."
+        )
+        
+    # Fetch CV data using the service token
+    try:
+        cv_data = await fetch_cv_data(request.cv_id, CV_SERVICE_AUTH_TOKEN)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during CV data fetch for cover letter: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error fetching CV data: {str(e)}"
+        )
+
+    # Check if OpenAI client is available before proceeding
+    if not client:
+        logger.error("OpenAI client not available for cover letter generation.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI service is not configured or unavailable."
+        )
+        
+    # Generate cover letter using OpenAI
+    try:
+        cover_letter_result = await generate_cover_letter(
+            cv_data=cv_data,
+            job_description=request.job_description,
+            user_comments=request.user_comments,
+            tone=request.tone,
+            company_name=request.company_name,
+            recipient_name=request.recipient_name,
+            position_title=request.position_title
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during cover letter generation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error generating cover letter: {str(e)}"
+        )
+
     # Prepare the response
     response = CoverLetterResponse(
         cv_id=request.cv_id,
@@ -320,5 +356,5 @@ async def create_cover_letter(
         keywords_used=cover_letter_result.get("keywords_used", []),
         timestamp=datetime.utcnow()
     )
-    
+
     return response 

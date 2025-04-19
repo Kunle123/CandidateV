@@ -32,6 +32,9 @@ if OPENAI_API_KEY:
 
 # CV Service URL
 CV_SERVICE_URL = os.getenv("CV_SERVICE_URL", "http://localhost:8002")
+CV_SERVICE_AUTH_TOKEN = os.getenv("CV_SERVICE_AUTH_TOKEN")
+if not CV_SERVICE_AUTH_TOKEN:
+    logger.warning("CV_SERVICE_AUTH_TOKEN environment variable is not set. AI service cannot authenticate to CV service.")
 
 # Pydantic models for request and response
 class JobMatchRequest(BaseModel):
@@ -451,58 +454,124 @@ async def analyze_detailed_job_match(cv_data: Dict[str, Any], job_description: s
 @router.post("/job-match", response_model=JobMatchResponse)
 async def job_match(
     request: JobMatchRequest,
-    token: str = Depends(oauth2_scheme)
+    user_token: str = Depends(oauth2_scheme) # Keep user token for potential future endpoint protection
 ):
-    """
-    Calculate match score between a CV and job description.
-    """
-    # Fetch CV data from the CV service
-    cv_data = await fetch_cv_data(request.cv_id, token)
+    """Perform a basic job match analysis."""
     
+    # Check if service token is configured
+    if not CV_SERVICE_AUTH_TOKEN:
+        logger.error("CV_SERVICE_AUTH_TOKEN not set. Cannot fetch CV data.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Internal configuration error: CV Service authentication token missing."
+        )
+        
+    # Fetch CV data using the service token
+    try:
+        cv_data = await fetch_cv_data(request.cv_id, CV_SERVICE_AUTH_TOKEN)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during CV data fetch for job match: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error fetching CV data: {str(e)}"
+        )
+
+    # Check if OpenAI client is available before proceeding
+    if not client:
+        logger.error("OpenAI client not available for job match.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI service is not configured or unavailable."
+        )
+        
     # Analyze the job match using OpenAI
-    match_result = await analyze_job_match(cv_data, request.job_description)
-    
+    try:
+        analysis_result = await analyze_job_match(cv_data, request.job_description)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during job match analysis: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error during job match analysis: {str(e)}"
+        )
+
     # Prepare the response
     response = JobMatchResponse(
         cv_id=request.cv_id,
         job_description=request.job_description,
-        match_score=match_result.get("match_score", 0),
-        strengths=match_result.get("strengths", []),
-        weaknesses=match_result.get("weaknesses", []),
-        missing_keywords=match_result.get("missing_keywords", []),
+        match_score=analysis_result.get("match_score", 0),
+        strengths=analysis_result.get("strengths", []),
+        weaknesses=analysis_result.get("weaknesses", []),
+        missing_keywords=analysis_result.get("missing_keywords", []),
         timestamp=datetime.utcnow()
     )
-    
+
     return response
 
 @router.post("/job-match/analyze", response_model=DetailedJobMatchResponse)
 async def job_match_analyze(
     request: DetailedJobMatchRequest,
-    token: str = Depends(oauth2_scheme)
+    user_token: str = Depends(oauth2_scheme) # Keep user token
 ):
-    """
-    Provide detailed analysis and optimization suggestions for a CV based on a job description.
-    """
-    # Fetch CV data from the CV service
-    cv_data = await fetch_cv_data(request.cv_id, token)
+    """Perform a detailed job match analysis."""
     
+    # Check if service token is configured
+    if not CV_SERVICE_AUTH_TOKEN:
+        logger.error("CV_SERVICE_AUTH_TOKEN not set. Cannot fetch CV data.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Internal configuration error: CV Service authentication token missing."
+        )
+        
+    # Fetch CV data using the service token
+    try:
+        cv_data = await fetch_cv_data(request.cv_id, CV_SERVICE_AUTH_TOKEN)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during CV data fetch for detailed job match: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error fetching CV data: {str(e)}"
+        )
+        
+    # Check if OpenAI client is available before proceeding
+    if not client:
+        logger.error("OpenAI client not available for detailed job match.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI service is not configured or unavailable."
+        )
+
     # Analyze the detailed job match using OpenAI
-    match_result = await analyze_detailed_job_match(cv_data, request.job_description)
-    
+    try:
+        analysis_result = await analyze_detailed_job_match(cv_data, request.job_description)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during detailed job match analysis: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error during detailed job match analysis: {str(e)}"
+        )
+
     # Prepare the response
     response = DetailedJobMatchResponse(
         cv_id=request.cv_id,
         job_description=request.job_description,
-        match_score=match_result.get("match_score", 0),
-        overview=match_result.get("overview", ""),
-        strengths=match_result.get("strengths", []),
-        weaknesses=match_result.get("weaknesses", []),
-        keywords_found=match_result.get("keywords_found", []),
-        keywords_missing=match_result.get("keywords_missing", []),
-        missing_skills=match_result.get("missing_skills", []),
-        skills_to_reword=match_result.get("skills_to_reword", []),
-        sections=match_result.get("sections", {}),
+        match_score=analysis_result.get("match_score", 0),
+        overview=analysis_result.get("overview", ""),
+        strengths=analysis_result.get("strengths", []),
+        weaknesses=analysis_result.get("weaknesses", []),
+        keywords_found=analysis_result.get("keywords_found", []),
+        keywords_missing=analysis_result.get("keywords_missing", []),
+        missing_skills=analysis_result.get("missing_skills", []),
+        skills_to_reword=analysis_result.get("skills_to_reword", []),
+        sections=analysis_result.get("sections", {}),
         timestamp=datetime.utcnow()
     )
-    
+
     return response 

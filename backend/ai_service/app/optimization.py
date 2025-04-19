@@ -32,6 +32,9 @@ if OPENAI_API_KEY:
 
 # CV Service URL
 CV_SERVICE_URL = os.getenv("CV_SERVICE_URL", "http://localhost:8002")
+CV_SERVICE_AUTH_TOKEN = os.getenv("CV_SERVICE_AUTH_TOKEN")
+if not CV_SERVICE_AUTH_TOKEN:
+    logger.warning("CV_SERVICE_AUTH_TOKEN environment variable is not set. AI service cannot authenticate to CV service.")
 
 # Pydantic models for request and response
 class OptimizationTarget(BaseModel):
@@ -186,63 +189,54 @@ async def optimize_text_with_openai(
 @router.post("/optimize", response_model=OptimizationResponse)
 async def optimize_cv(
     request: OptimizationRequest,
-    token: str = Depends(oauth2_scheme)
+    user_token: str = Depends(oauth2_scheme) # Keep user token
 ):
     """
     Optimize sections of a CV using AI to improve content and incorporate keywords.
     """
-    # For testing purposes, return mock data if CV ID is "test-cv-id"
-    if request.cv_id == "test-cv-id" or not client:
-        logger.info(f"Using mock data for optimization with cv_id={request.cv_id}")
-        optimized_sections = []
-        
-        for target in request.targets:
-            # Create a mock optimization result based on the target
-            if target.section == "summary":
-                mock_result = {
-                    "section": target.section,
-                    "original_content": target.content,
-                    "optimized_content": f"Results-driven professional with expertise in {', '.join(target.keywords) if target.keywords else 'various technologies'}. Passionate about delivering high-quality solutions for {target.target_job if target.target_job else 'the industry'}.",
-                    "improvements": [
-                        "Added action verbs and positive descriptors",
-                        "Emphasized relevant skills",
-                        "Improved overall clarity and impact"
-                    ],
-                    "keywords_added": target.keywords or ["professional", "expertise", "high-quality"]
-                }
-            else:
-                # Generic mock for any other section
-                mock_result = {
-                    "section": target.section,
-                    "original_content": target.content,
-                    "optimized_content": f"Enhanced {target.section} with professional language and targeted keywords for {target.target_job if target.target_job else 'the industry'}. {target.content}",
-                    "improvements": [
-                        "Improved readability",
-                        "Enhanced professional tone",
-                        "Better aligned with target position"
-                    ],
-                    "keywords_added": target.keywords or ["expertise", "proficient", "experienced"]
-                }
-            
-            optimized_sections.append(OptimizedContent(**mock_result))
-        
-        # Prepare the mock response
-        response = OptimizationResponse(
-            cv_id=request.cv_id,
-            optimized_sections=optimized_sections,
-            timestamp=datetime.utcnow()
-        )
-        
-        return response
     
-    try:
-        # Fetch CV data from the CV service (to verify CV exists)
-        await fetch_cv_data(request.cv_id, token)
-        
-        # Process each optimization target
-        optimized_sections = []
-        for target in request.targets:
-            optimization_result = await optimize_text_with_openai(
+    # Check if service token is configured - Needed to potentially fetch full CV if context requires
+    if not CV_SERVICE_AUTH_TOKEN:
+        logger.warning("CV_SERVICE_AUTH_TOKEN not set. Authentication to CV service may be needed.")
+        # Depending on implementation, might not need to fetch CV, so just log warning for now
+        # We might only optimize provided content directly.
+    
+    # For testing purposes or if OpenAI client is not configured
+    if not client:
+        logger.warning("OpenAI client not configured. Returning mock optimization data.")
+        # Create mock response if needed for testing or fallback
+        mock_optimized = [
+            OptimizedContent(
+                section=t.section,
+                original_content=t.content,
+                optimized_content=f"Mock optimized content for {t.section}.",
+                improvements=["Mock improvement 1", "Mock improvement 2"],
+                keywords_added=t.keywords or []
+            ) for t in request.targets
+        ]
+        return OptimizationResponse(cv_id=request.cv_id, optimized_sections=mock_optimized, timestamp=datetime.utcnow())
+
+    optimized_results: List[OptimizedContent] = []
+
+    # NOTE: Current implementation optimizes ONLY the provided content. 
+    # If full CV context is needed, uncomment the fetch_cv_data call below.
+    # If fetching the full CV, ensure CV_SERVICE_AUTH_TOKEN check above raises HTTPException.
+    
+    # # Fetch full CV data if needed for context (currently commented out)
+    # try:
+    #     if not CV_SERVICE_AUTH_TOKEN: # Re-check if fetch is uncommented
+    #         raise HTTPException(status_code=503, detail="CV Service auth token missing.")
+    #     cv_data = await fetch_cv_data(request.cv_id, CV_SERVICE_AUTH_TOKEN)
+    # except HTTPException as e:
+    #     raise e
+    # except Exception as e:
+    #     logger.error(f"Error fetching CV for optimization: {e}")
+    #     raise HTTPException(status_code=500, detail="Error fetching CV data.")
+
+    for target in request.targets:
+        try:
+            # Optimize the text using OpenAI
+            optimization_result_dict = await optimize_text_with_openai(
                 section=target.section,
                 content=target.content,
                 target_job=target.target_job,
@@ -250,32 +244,30 @@ async def optimize_cv(
                 tone=target.tone,
                 keywords=target.keywords
             )
-            optimized_sections.append(OptimizedContent(**optimization_result))
-        
-        # Prepare the response
-        response = OptimizationResponse(
-            cv_id=request.cv_id,
-            optimized_sections=optimized_sections,
-            timestamp=datetime.utcnow()
-        )
-        
-        return response
-    except Exception as e:
-        logger.error(f"Error in optimize_cv: {str(e)}")
-        # Return mock data as fallback in case of errors
-        optimized_sections = []
-        for target in request.targets:
-            fallback_result = {
-                "section": target.section,
-                "original_content": target.content,
-                "optimized_content": f"[Fallback] Improved version of: {target.content}",
-                "improvements": ["Error occurred during optimization", "Using fallback response"],
-                "keywords_added": target.keywords or []
-            }
-            optimized_sections.append(OptimizedContent(**fallback_result))
-        
-        return OptimizationResponse(
-            cv_id=request.cv_id,
-            optimized_sections=optimized_sections,
-            timestamp=datetime.utcnow()
-        ) 
+            # Convert dict to Pydantic model instance
+            optimized_content = OptimizedContent(**optimization_result_dict)
+            optimized_results.append(optimized_content)
+            
+        except HTTPException as e:
+            # If OpenAI call fails, log and continue to next target? Or raise immediately?
+            # Currently, let's raise immediately to signal failure.
+            logger.error(f"Error optimizing section '{target.section}': {e.detail}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=f"Error optimizing section '{target.section}': {e.detail}"
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error optimizing section '{target.section}': {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unexpected error optimizing section '{target.section}': {str(e)}"
+            )
+
+    # Prepare the final response
+    response = OptimizationResponse(
+        cv_id=request.cv_id,
+        optimized_sections=optimized_results,
+        timestamp=datetime.utcnow()
+    )
+
+    return response 
