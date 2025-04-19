@@ -320,20 +320,40 @@ async def get_cv(
 ):
     """Get a specific CV."""
     user_id = auth["user_id"]
-    
-    # Query CV
-    cv = db.query(models.CV).filter(
-        models.CV.id == cv_id,
-        models.CV.user_id == user_id
-    ).first()
-    
+    logger.info(f"Attempting to get CV. ID: '{cv_id}', User ID: '{user_id}'")
+    cv = None
+    try:
+        # Query CV
+        cv = db.query(models.CV).filter(
+            models.CV.id == cv_id,
+            models.CV.user_id == user_id
+        ).first()
+        logger.info(f"Database query executed for CV ID: '{cv_id}'")
+    except Exception as e:
+        logger.error(f"Database query failed for CV ID: '{cv_id}'. Error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error while fetching CV"
+        )
+
     if not cv:
+        logger.warning(f"CV not found or access denied for CV ID: '{cv_id}', User ID: '{user_id}'")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="CV not found"
         )
     
-    return serialize_cv(cv)
+    logger.info(f"CV found for ID: '{cv_id}'. Serializing.")
+    try:
+        serialized_cv = serialize_cv(cv)
+        logger.info(f"Serialization successful for CV ID: '{cv_id}'")
+        return serialized_cv
+    except Exception as e:
+        logger.error(f"Serialization failed for CV ID: '{cv_id}'. Error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error processing CV data"
+        )
 
 @app.put("/api/cv/{cv_id}/metadata")
 async def update_cv_metadata(
