@@ -517,23 +517,31 @@ async def job_match_analyze(
     user_token: str = Depends(oauth2_scheme) # Keep user token
 ):
     """Perform a detailed job match analysis."""
-    logger.info(f"Entering job_match_analyze for cv_id: {request.cv_id}")
+    request_id = request.cv_id # Use cv_id for simple request tracking
+    logger.info(f"[{request_id}] Entering job_match_analyze")
     
     # Check if service token is configured
     if not CV_SERVICE_AUTH_TOKEN:
-        logger.error("CV_SERVICE_AUTH_TOKEN not set. Cannot fetch CV data.")
+        logger.error(f"[{request_id}] CV_SERVICE_AUTH_TOKEN not set. Cannot proceed.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Internal configuration error: CV Service authentication token missing."
         )
+    logger.debug(f"[{request_id}] CV Service Auth Token is configured.")
         
     # Fetch CV data using the service token
+    cv_data = None
     try:
+        logger.info(f"[{request_id}] Attempting to fetch CV data...")
         cv_data = await fetch_cv_data(request.cv_id, CV_SERVICE_AUTH_TOKEN)
+        logger.info(f"[{request_id}] Successfully fetched CV data.")
+        logger.debug(f"[{request_id}] CV data snippet: {str(cv_data)[:200]}...") # Log snippet for debug
     except HTTPException as e:
-        raise e
+        logger.error(f"[{request_id}] HTTPException during CV data fetch: Status={e.status_code}, Detail={e.detail}")
+        # Re-raise the exception to let FastAPI handle the response
+        raise e 
     except Exception as e:
-        logger.error(f"Unexpected error during CV data fetch for detailed job match: {str(e)}")
+        logger.error(f"[{request_id}] Unexpected error during CV data fetch: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error fetching CV data: {str(e)}"
@@ -541,25 +549,32 @@ async def job_match_analyze(
         
     # Check if OpenAI client is available before proceeding
     if not client:
-        logger.error("OpenAI client not available for detailed job match.")
+        logger.error(f"[{request_id}] OpenAI client not available. Cannot proceed.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OpenAI service is not configured or unavailable."
         )
+    logger.debug(f"[{request_id}] OpenAI client is available.")
 
     # Analyze the detailed job match using OpenAI
+    analysis_result = None
     try:
+        logger.info(f"[{request_id}] Attempting detailed job match analysis via OpenAI...")
         analysis_result = await analyze_detailed_job_match(cv_data, request.job_description)
+        logger.info(f"[{request_id}] Successfully received analysis from OpenAI.")
+        logger.debug(f"[{request_id}] OpenAI analysis result snippet: {str(analysis_result)[:200]}...")
     except HTTPException as e:
+        logger.error(f"[{request_id}] HTTPException during OpenAI analysis: Status={e.status_code}, Detail={e.detail}")
         raise e
     except Exception as e:
-        logger.error(f"Unexpected error during detailed job match analysis: {str(e)}")
+        logger.error(f"[{request_id}] Unexpected error during OpenAI analysis: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error during detailed job match analysis: {str(e)}"
         )
 
     # Prepare the response
+    logger.info(f"[{request_id}] Preparing final response.")
     response = DetailedJobMatchResponse(
         cv_id=request.cv_id,
         job_description=request.job_description,
@@ -574,5 +589,5 @@ async def job_match_analyze(
         sections=analysis_result.get("sections", {}),
         timestamp=datetime.utcnow()
     )
-
+    logger.info(f"[{request_id}] Job match analysis complete. Returning response.")
     return response 
