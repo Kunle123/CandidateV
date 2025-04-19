@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -513,12 +513,38 @@ async def job_match(
 
 @router.post("/job-match/analyze", response_model=DetailedJobMatchResponse)
 async def job_match_analyze(
-    request: DetailedJobMatchRequest,
+    # Changed from Pydantic model to raw Request to bypass auto-validation
+    request: Request, 
     # user_token: str = Depends(oauth2_scheme) # Temporarily commented out for debugging
 ):
     """Perform a detailed job match analysis."""
-    request_id = request.cv_id # Use cv_id for simple request tracking
-    logger.info(f"[{request_id}] Entering job_match_analyze")
+    
+    # --- Manual Request Parsing & Validation --- 
+    request_body = None
+    try:
+        request_body = await request.json()
+        logger.debug(f"Raw request body parsed successfully: {str(request_body)[:500]}...")
+    except Exception as json_error:
+        logger.error(f"Failed to parse request JSON body: {json_error}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid JSON body: {json_error}"
+        )
+
+    cv_id = request_body.get("cv_id")
+    job_description = request_body.get("job_description")
+    # detailed = request_body.get("detailed", True) # Use default if missing
+
+    if not cv_id or not job_description:
+        logger.error(f"Missing 'cv_id' or 'job_description' in request body. Body: {request_body}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="'cv_id' and 'job_description' are required in the request body."
+        )
+    # --- End Manual Parsing ---
+
+    request_id = cv_id # Use cv_id for simple request tracking
+    logger.info(f"[{request_id}] Entering job_match_analyze (manual parsing successful)")
     
     # Check if service token is configured
     if not CV_SERVICE_AUTH_TOKEN:
@@ -533,7 +559,7 @@ async def job_match_analyze(
     cv_data = None
     try:
         logger.info(f"[{request_id}] Attempting to fetch CV data...")
-        cv_data = await fetch_cv_data(request.cv_id, CV_SERVICE_AUTH_TOKEN)
+        cv_data = await fetch_cv_data(cv_id, CV_SERVICE_AUTH_TOKEN)
         logger.info(f"[{request_id}] Successfully fetched CV data.")
         logger.debug(f"[{request_id}] CV data snippet: {str(cv_data)[:200]}...") # Log snippet for debug
     except HTTPException as e:
@@ -560,7 +586,7 @@ async def job_match_analyze(
     analysis_result = None
     try:
         logger.info(f"[{request_id}] Attempting detailed job match analysis via OpenAI...")
-        analysis_result = await analyze_detailed_job_match(cv_data, request.job_description)
+        analysis_result = await analyze_detailed_job_match(cv_data, job_description)
         logger.info(f"[{request_id}] Successfully received analysis from OpenAI.")
         logger.debug(f"[{request_id}] OpenAI analysis result snippet: {str(analysis_result)[:200]}...")
     except HTTPException as e:
@@ -576,8 +602,8 @@ async def job_match_analyze(
     # Prepare the response
     logger.info(f"[{request_id}] Preparing final response.")
     response = DetailedJobMatchResponse(
-        cv_id=request.cv_id,
-        job_description=request.job_description,
+        cv_id=cv_id,
+        job_description=job_description,
         match_score=analysis_result.get("match_score", 0),
         overview=analysis_result.get("overview", ""),
         strengths=analysis_result.get("strengths", []),
