@@ -1,10 +1,17 @@
 """Email utilities for sending emails."""
 import logging
 from typing import Dict, Any, Optional
+from pathlib import Path
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Ensure template directory exists
+template_dir = Path("app/templates")
+if not template_dir.exists():
+    template_dir.mkdir(parents=True)
+    logger.info(f"Created template directory: {template_dir}")
 
 # Email configuration
 try:
@@ -15,13 +22,11 @@ try:
         MAIL_PORT=settings.SMTP_PORT or 587,
         MAIL_SERVER=settings.SMTP_HOST or "localhost",
         MAIL_FROM_NAME=settings.EMAILS_FROM_NAME or "Auth Service",
-        MAIL_TLS=settings.SMTP_TLS,
-        MAIL_SSL=False,
         MAIL_STARTTLS=True,
         MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
         VALIDATE_CERTS=True,
-        TEMPLATE_FOLDER="app/templates"
+        TEMPLATE_FOLDER=str(template_dir.absolute())
     )
     fastmail = FastMail(email_conf)
 except Exception as e:
