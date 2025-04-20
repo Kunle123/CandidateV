@@ -7,14 +7,14 @@ from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST
 
 from app.core.config import settings
-from app.core.security import get_password_hash, verify_password
+from app.core.password import get_password_hash, verify_password
 from app.db.models import User, RefreshToken, PasswordResetToken, EmailVerificationToken
 from app.services.user import get_user_by_email
 from app.core.email import send_email
 
-def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+async def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     """Authenticate user by email and password."""
-    user = get_user_by_email(db, email=email)
+    user = await get_user_by_email(db, email=email)
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
