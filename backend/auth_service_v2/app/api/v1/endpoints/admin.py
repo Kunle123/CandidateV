@@ -8,8 +8,8 @@ from starlette.status import HTTP_404_NOT_FOUND
 from app.api.deps.auth import get_current_active_superuser
 from app.api.deps.db import get_db
 from app.models.user import User, UserCreate, UserUpdate
-from app.db.models import AuditLog
-from app.models.audit import AuditLogSummary, UserActivity
+from app.db.models import AuditLog as DbAuditLog
+from app.models.audit import AuditLog, AuditLogSummary, UserActivity
 from app.services.user import (
     create_user,
     get_user,
@@ -137,22 +137,22 @@ async def list_audit_logs(
     Retrieve audit logs with optional filtering.
     Only accessible by superusers.
     """
-    query = db.query(AuditLog)
+    query = db.query(DbAuditLog)
     
     if action_type:
-        query = query.filter(AuditLog.action.startswith(action_type))
+        query = query.filter(DbAuditLog.action.startswith(action_type))
     
     if user_id:
-        query = query.filter(AuditLog.user_id == user_id)
+        query = query.filter(DbAuditLog.user_id == user_id)
     
     if start_date:
-        query = query.filter(AuditLog.created_at >= start_date)
+        query = query.filter(DbAuditLog.created_at >= start_date)
     
     if end_date:
-        query = query.filter(AuditLog.created_at <= end_date)
+        query = query.filter(DbAuditLog.created_at <= end_date)
     
     # Order by most recent first
-    query = query.order_by(AuditLog.created_at.desc())
+    query = query.order_by(DbAuditLog.created_at.desc())
     
     return query.offset(skip).limit(limit).all()
 
@@ -169,26 +169,26 @@ async def get_audit_logs_summary(
     start_date = datetime.utcnow() - timedelta(days=days)
     
     # Get total counts by action type
-    query = db.query(AuditLog.action, db.func.count(AuditLog.id)).\
-        filter(AuditLog.created_at >= start_date).\
-        group_by(AuditLog.action)
+    query = db.query(DbAuditLog.action, db.func.count(DbAuditLog.id)).\
+        filter(DbAuditLog.created_at >= start_date).\
+        group_by(DbAuditLog.action)
     
     action_counts = {action: count for action, count in query.all()}
     
     # Get counts of failed auth attempts
-    failed_auth_count = db.query(AuditLog).\
-        filter(AuditLog.action.like("FAILED_AUTH_%")).\
-        filter(AuditLog.created_at >= start_date).\
+    failed_auth_count = db.query(DbAuditLog).\
+        filter(DbAuditLog.action.like("FAILED_AUTH_%")).\
+        filter(DbAuditLog.created_at >= start_date).\
         count()
     
     # Get most active users
     user_activity = db.query(
-        AuditLog.user_id,
-        db.func.count(AuditLog.id).label("activity_count")
+        DbAuditLog.user_id,
+        db.func.count(DbAuditLog.id).label("activity_count")
     ).\
-        filter(AuditLog.user_id.isnot(None)).\
-        filter(AuditLog.created_at >= start_date).\
-        group_by(AuditLog.user_id).\
+        filter(DbAuditLog.user_id.isnot(None)).\
+        filter(DbAuditLog.created_at >= start_date).\
+        group_by(DbAuditLog.user_id).\
         order_by(db.text("activity_count DESC")).\
         limit(5).\
         all()
@@ -213,8 +213,8 @@ async def get_security_events(
     """
     start_date = datetime.utcnow() - timedelta(hours=hours)
     
-    return db.query(AuditLog).\
-        filter(AuditLog.action.like("SECURITY_%")).\
-        filter(AuditLog.created_at >= start_date).\
-        order_by(AuditLog.created_at.desc()).\
+    return db.query(DbAuditLog).\
+        filter(DbAuditLog.action.like("SECURITY_%")).\
+        filter(DbAuditLog.created_at >= start_date).\
+        order_by(DbAuditLog.created_at.desc()).\
         all() 
