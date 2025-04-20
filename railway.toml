@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "backend/auth_service_v2/Dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 numReplicas = 1
