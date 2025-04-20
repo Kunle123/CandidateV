@@ -1,7 +1,7 @@
 [build]
 # Use direct Dockerfile build (recommended for GitHub users)
 builder = "DOCKERFILE"
-dockerfilePath = "backend/auth_service_v2/Dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 numReplicas = 1
@@ -12,4 +12,15 @@ restartPolicyMaxRetries = 5
 startCommand = "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 
 [service]
-rootDirectory = "backend/auth_service_v2" 
+rootDirectory = "."
+
+[variables]
+ENVIRONMENT = "production"
+DEBUG = "false"
+API_V1_STR = "/api/v1"
+BACKEND_CORS_ORIGINS = "*"
+RATE_LIMIT_PER_MINUTE = "60"
+DATABASE_URL = "postgresql://${{Postgres.PGUSER}}:${{Postgres.POSTGRES_PASSWORD}}@${{Postgres.RAILWAY_TCP_PROXY_DOMAIN}}:${{Postgres.RAILWAY_TCP_PROXY_PORT}}/${{Postgres.PGDATABASE}}"
+POSTGRES_DB = "${{Postgres.POSTGRES_DB}}"
+POSTGRES_USER = "${{Postgres.POSTGRES_USER}}"
+POSTGRES_PASSWORD = "${{Postgres.POSTGRES_PASSWORD}}" 

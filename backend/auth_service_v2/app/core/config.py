@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = []
+    BACKEND_CORS_ORIGINS: Union[str, List[str]] = "*"
     
     # Email
     SMTP_TLS: bool = True
@@ -47,17 +47,11 @@ class Settings(BaseSettings):
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
-        if isinstance(v, str):
-            try:
-                # Try to parse as JSON first
-                return json.loads(v)
-            except json.JSONDecodeError:
-                # If not JSON, try comma-separated string
-                if "," in v:
-                    return [i.strip() for i in v.split(",")]
-                # If single value, return as list
-                return [v.strip()]
-        return v or []
+        if isinstance(v, list):
+            return v
+        if v == "*":
+            return ["*"]
+        return [origin.strip() for origin in v.split(",") if origin.strip()]
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: dict[str, any]) -> str:

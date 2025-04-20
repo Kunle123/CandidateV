@@ -25,8 +25,13 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Get the database URL. Priority:
+# 1. DATABASE_URL from environment
+# 2. Constructed URL from settings
+database_url = os.getenv("DATABASE_URL", settings.SQLALCHEMY_DATABASE_URI)
+
 # Set the SQLAlchemy URL in the alembic.ini file
-config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
+config.set_main_option("sqlalchemy.url", database_url)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -57,8 +62,12 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
+    # Override the SQLAlchemy URL with our database URL
+    configuration = config.get_section(config.config_ini_section)
+    configuration["sqlalchemy.url"] = database_url
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
