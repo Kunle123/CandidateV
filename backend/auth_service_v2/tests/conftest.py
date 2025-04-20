@@ -5,9 +5,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import ProgrammingError
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.config import settings
-from app.db.session import get_db, SessionLocal, engine
+from app.db.session import get_db, AsyncSessionLocal, engine
 from app.db.models import Base
 from app.main import app  # We'll create this later
 from tests.utils.user import authentication_token_from_email
@@ -29,64 +31,63 @@ RAILWAY_PUBLIC_PORT = "29421"
 MAIN_DATABASE_URL = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{RAILWAY_PUBLIC_HOST}:{RAILWAY_PUBLIC_PORT}/railway"
 TEST_DATABASE_URL = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{RAILWAY_PUBLIC_HOST}:{RAILWAY_PUBLIC_PORT}/{TEST_DB_NAME}"
 
+# Use in-memory SQLite for tests
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+engine_test = create_async_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_pre_ping=True,
+    echo=True
+)
+
+TestingAsyncSessionLocal = sessionmaker(
+    engine_test,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False
+)
+
 @pytest.fixture(scope="session")
-def test_db_engine():
-    # First connect to the main database to create test database
-    main_engine = create_engine(MAIN_DATABASE_URL, pool_pre_ping=True)
-    
-    try:
-        # Try to create the test database
-        with main_engine.connect() as conn:
-            conn.execute(text("commit"))  # Close any open transactions
-            conn.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB_NAME}"))
-            conn.execute(text(f"CREATE DATABASE {TEST_DB_NAME}"))
-    except ProgrammingError as e:
-        print(f"Error setting up test database: {e}")
-        raise
-    finally:
-        main_engine.dispose()
+def event_loop():
+    """Create an instance of the default event loop for each test case."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
-    # Create a new engine connected to the test database
-    test_engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
+@pytest.fixture(scope="session")
+async def db() -> AsyncGenerator[AsyncSession, None]:
+    """Session-wide test database."""
+    async with engine_test.begin() as conn:
+        # Create all tables
+        await conn.run_sync(Base.metadata.create_all)
     
-    try:
-        # Create all tables in the test database
-        Base.metadata.create_all(bind=test_engine)
-        yield test_engine
-    finally:
-        Base.metadata.drop_all(bind=test_engine)
-        test_engine.dispose()
-        
-        # Clean up by connecting to main DB and dropping test DB
-        main_engine = create_engine(MAIN_DATABASE_URL, pool_pre_ping=True)
-        with main_engine.connect() as conn:
-            conn.execute(text("commit"))
-            conn.execute(text(f"DROP DATABASE IF EXISTS {TEST_DB_NAME}"))
-        main_engine.dispose()
+    async with TestingAsyncSessionLocal() as session:
+        yield session
+    
+    async with engine_test.begin() as conn:
+        # Drop all tables
+        await conn.run_sync(Base.metadata.drop_all)
 
 @pytest.fixture(scope="function")
-def db_session(test_db_engine):
-    TestingSessionLocal = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=test_db_engine
-    )
-    db = TestingSessionLocal()
-    try:
+async def db_session(db: AsyncSession) -> AsyncGenerator[AsyncSession, None]:
+    """Creates a fresh database session for a test."""
+    async with db.begin():
         yield db
-    finally:
-        db.rollback()
-        db.close()
+        await db.rollback()
 
 @pytest.fixture(scope="function")
-def client(db_session) -> Generator:
-    def override_get_db():
+def client(db_session: AsyncSession) -> Generator:
+    """Create a new FastAPI TestClient that uses the `db_session` fixture to override
+    the `get_db` dependency that is injected into routes.
+    """
+    async def _get_test_db():
         try:
             yield db_session
         finally:
             pass
-    
-    app.dependency_overrides[get_db] = override_get_db
+
+    app.dependency_overrides[get_db] = _get_test_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
