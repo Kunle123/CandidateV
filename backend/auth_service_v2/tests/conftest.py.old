@@ -1,0 +1,1 @@
+from app.tests.utils.user import authentication_token_from_email
