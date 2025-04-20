@@ -4,23 +4,7 @@ buildCommand = "pip install -r requirements.txt"
 NO_CACHE = "1"
 
 [deploy]
-startCommand = """
-    sleep 30 && \
-    python -m alembic upgrade head && \
-    PYTHONUNBUFFERED=1 \
-    LOG_LEVEL=debug \
-    UVICORN_WORKERS=1 \
-    MAX_WORKERS=1 \
-    python -m uvicorn \
-    app.main:app \
-    --host 0.0.0.0 \
-    --port $PORT \
-    --workers 1 \
-    --log-level debug \
-    --timeout-keep-alive 75 \
-    --limit-concurrency 50 \
-    --backlog 2048
-"""
+startCommand = "sleep 30 && python -m alembic upgrade head && PYTHONUNBUFFERED=1 LOG_LEVEL=debug UVICORN_WORKERS=1 MAX_WORKERS=1 python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level debug --timeout-keep-alive 75 --limit-concurrency 50 --backlog 2048"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
