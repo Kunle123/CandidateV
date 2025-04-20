@@ -7,6 +7,9 @@ DEFAULT_PORT=8001 # Default auth service port
 # Use PORT environment variable or default value
 PORT=${PORT:-$DEFAULT_PORT}
 
+echo "Waiting 5 seconds for database to be ready..."
+sleep 5
+
 echo "Starting main Authentication Service on port $PORT"
 
 # Run the main application defined in main.py
