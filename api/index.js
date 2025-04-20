@@ -1011,89 +1011,62 @@ app.use((req, res, next) => {
   next();
 });
 
-// Create proxy middleware function
-const createProxy = (serviceName, targetUrl) => {
-  return createProxyMiddleware({
+// Helper function to create proxy middleware with logging
+const createProxy = (serviceName, targetUrl, options = {}) => {
+  const defaultOptions = {
     target: targetUrl,
     changeOrigin: true,
-    timeout: 30000,
-    onProxyReq: (proxyReq, req, res) => {
-      // Log proxy requests for debugging
-      console.log(`Proxying ${req.method} request to ${serviceName}: ${req.path}`);
-      
-      // Add debugging headers
-      proxyReq.setHeader('X-Proxy-Service', serviceName);
-      proxyReq.setHeader('X-Proxy-Target', targetUrl);
-      proxyReq.setHeader('X-Original-URL', req.originalUrl);
+    // Default pathRewrite - remove if overridden in options
+    pathRewrite: {
+      [`^/api/${serviceName}`]: '', 
     },
-    pathRewrite: (path, req) => {
-      // For OPTIONS requests, return null to prevent proxying
-      if (req.method === 'OPTIONS') {
-        return null;
+    logLevel: 'debug', 
+    onProxyReq: (proxyReq, req, res) => {
+      console.log(`[${serviceName} Proxy] Request URL: ${req.originalUrl}`);
+      console.log(`[${serviceName} Proxy] Target URL: ${targetUrl}`);
+      console.log(`[${serviceName} Proxy] Forwarding path: ${proxyReq.path}`); // Log the actual path being forwarded
+      
+      if (req.body && Object.keys(req.body).length > 0) {
+          // Avoid logging sensitive data like passwords in production
+          // Consider logging only keys or a masked version if needed for debugging
+          // console.log(`[${serviceName} Proxy] Request Body Keys:`, Object.keys(req.body));
       }
-      // Log the path rewrite for debugging
-      console.log(`Path rewrite: ${path} -> ${path}`);
-      return path;
+      
+      proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+      proxyReq.setHeader('X-Forwarded-For', req.ip);
+      if (req.headers.authorization) {
+        console.log(`[${serviceName} Proxy] Forwarding Authorization header.`);
+        proxyReq.setHeader('Authorization', req.headers.authorization);
+      } else {
+        // console.log(`[${serviceName} Proxy] No Authorization header found to forward.`); // Reduce noise
+      }
+    },
+    onProxyRes: (proxyRes, req, res) => {
+      console.log(`[${serviceName} Proxy] Received response: ${proxyRes.statusCode} for path ${req.originalUrl} from ${targetUrl}`);
     },
     onError: (err, req, res) => {
-      console.error(`Proxy error for ${serviceName}: ${err.message}`, {
-        service: serviceName,
-        targetUrl,
-        originalUrl: req.originalUrl,
-        path: req.path,
-        method: req.method,
-        error: err.message
-      });
-      
-      // For OPTIONS requests, handle directly
-      if (req.method === 'OPTIONS') {
-        // Allow requests from any origin in development
-        const origin = req.headers.origin;
-        if (origin) {
-          res.header('Access-Control-Allow-Origin', origin);
-        } else {
-          res.header('Access-Control-Allow-Origin', '*');
-        }
-        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Max-Age', '86400');
-        res.status(200).end();
-        return;
+      console.error(`[${serviceName} Proxy] Error for ${req.originalUrl}:`, err);
+      // Avoid sending detailed error messages to client in production
+      if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'application/json' }); // Use 502 Bad Gateway for proxy errors
       }
-      
-      // Set proper CORS headers in error response
-      const origin = req.headers.origin;
-      if (origin) {
-        res.header('Access-Control-Allow-Origin', origin);
-      } else {
-        res.header('Access-Control-Allow-Origin', '*');
-      }
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-      res.header('Access-Control-Allow-Credentials', 'true');
-      
-      res.status(503).json({
-        status: 'error',
-        message: `${serviceName} service temporarily unavailable`,
-        error: err.message,
-        originalUrl: req.originalUrl,
-        path: req.path,
-        method: req.method,
-        timestamp: new Date().toISOString()
-      });
+      res.end(JSON.stringify({ message: 'Proxy Error', details: 'Could not connect to the target service.' }));
     }
-  });
+  };
+  
+  // Merge default options with provided options
+  // Specifically, if pathRewrite is provided in options, it overrides the default.
+  // If pathRewrite is explicitly set to null or false in options, it removes the default rewrite.
+  const finalOptions = { ...defaultOptions, ...options };
+  if (options.pathRewrite === null || options.pathRewrite === false) {
+    delete finalOptions.pathRewrite; // Remove pathRewrite if explicitly told to
+  }
+  
+  return createProxyMiddleware(finalOptions);
 };
 
 // Set up service routes - Note: These will only be used if a request doesn't match our local routes
-app.use('/api/auth', (req, res, next) => {
-  // We have local implementations for these auth routes
-  if (req.path === '/register' || req.path === '/login') {
-    return next('route'); // Skip the proxy for these routes
-  }
-  return createProxy('auth', SERVICE_URLS.auth)(req, res, next);
-});
+app.use('/api/auth', createProxy('auth', SERVICE_URLS.auth, { pathRewrite: null }));
 
 app.use('/api/users', createProxy('user', SERVICE_URLS.user));
 
