@@ -4,8 +4,35 @@ buildCommand = "pip install -r requirements.txt"
 NO_CACHE = "1"
 
 [deploy]
-startCommand = "sleep 10 && python -m alembic upgrade head && PYTHONUNBUFFERED=1 LOG_LEVEL=debug python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-1} --log-level debug"
+startCommand = """
+    sleep 30 && \
+    python -m alembic upgrade head && \
+    PYTHONUNBUFFERED=1 \
+    LOG_LEVEL=debug \
+    UVICORN_WORKERS=1 \
+    MAX_WORKERS=1 \
+    python -m uvicorn \
+    app.main:app \
+    --host 0.0.0.0 \
+    --port $PORT \
+    --workers 1 \
+    --log-level debug \
+    --timeout-keep-alive 75 \
+    --limit-concurrency 50 \
+    --backlog 2048
+"""
 healthcheckPath = "/api/v1/health"
-healthcheckTimeout = 120
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
-healthcheckInterval = 15 
+healthcheckInterval = 45
+restartPolicyMaxRetries = 5
+healthcheckProtocol = "http"
+
+[deploy.env]
+ENVIRONMENT = "production"
+DEBUG = "true"  # Temporarily enable debug for better error logging
+POOL_SIZE = "5"
+MAX_OVERFLOW = "10"
+POOL_TIMEOUT = "60"
+POOL_RECYCLE = "1800"
+SQLALCHEMY_POOL_PRE_PING = "true"
