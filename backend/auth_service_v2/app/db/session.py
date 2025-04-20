@@ -37,15 +37,16 @@ def get_database_url() -> str:
 # Get database URL
 database_url = get_database_url()
 
-# Create async engine
+# Create async engine with more conservative pooling settings
 engine = create_async_engine(
     database_url,
-    pool_size=10,  # Increased pool size
-    max_overflow=20,  # Increased max overflow
-    pool_timeout=30,  # Reduced pool timeout
+    pool_size=5,  # Reduced pool size
+    max_overflow=10,  # Reduced max overflow
+    pool_timeout=60,  # Increased pool timeout
     pool_pre_ping=True,  # Enable connection health checks
-    pool_recycle=300,  # Recycle connections every 5 minutes
+    pool_recycle=1800,  # Recycle connections every 30 minutes
     echo=settings.DEBUG,  # SQL logging in debug mode
+    echo_pool=True,  # Enable pool logging
 )
 
 AsyncSessionLocal = sessionmaker(
@@ -56,55 +57,43 @@ AsyncSessionLocal = sessionmaker(
     autoflush=False,
 )
 
-# Context manager for database sessions
+# Context manager for database sessions with retries
 class db:
     def __init__(self):
         self.session = None
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        before=before_log(logger, logging.INFO),
+        after=after_log(logger, logging.WARNING),
+    )
     async def __aenter__(self) -> AsyncSession:
-        self.session = AsyncSessionLocal()
-        return self.session
+        try:
+            self.session = AsyncSessionLocal()
+            # Test the connection
+            await self.session.execute(text("SELECT 1"))
+            return self.session
+        except Exception as e:
+            if self.session:
+                await self.session.close()
+            logger.error(f"Failed to create database session: {str(e)}")
+            raise
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.session:
-            if exc_type:
-                await self.session.rollback()
-            await self.session.close()
+            try:
+                if exc_type:
+                    await self.session.rollback()
+                await self.session.close()
+            except Exception as e:
+                logger.error(f"Error closing database session: {str(e)}")
+                raise
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    before=before_log(logger, logging.INFO),
-    after=after_log(logger, logging.WARN),
-)
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Get async database session with proper error handling and connection management.
-    Includes retry logic for transient database connection issues.
-    """
-    async with AsyncSessionLocal() as session:
-        try:
-            # Verify connection is alive
-            await session.execute(text("SELECT 1"))
-            yield session
-        except Exception as e:
-            logger.error(f"Database session error: {str(e)}")
-            await session.rollback()
-            raise
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    before=before_log(logger, logging.INFO),
-    after=after_log(logger, logging.WARN),
-)
 async def verify_database_connection() -> bool:
-    """
-    Verify database connection is working.
-    Returns True if connection is successful, False otherwise.
-    """
+    """Verify database connection is working."""
     try:
-        async with AsyncSessionLocal() as session:
+        async with db() as session:
             await session.execute(text("SELECT 1"))
             return True
     except Exception as e:
@@ -112,9 +101,7 @@ async def verify_database_connection() -> bool:
         return False
 
 async def init_db() -> None:
-    """
-    Initialize database with required tables and initial data.
-    """
+    """Initialize database with required tables and initial data."""
     from ..db.models import Base
     try:
         async with engine.begin() as conn:
