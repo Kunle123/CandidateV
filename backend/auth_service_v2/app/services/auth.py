@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST
@@ -12,7 +13,7 @@ from app.db.models import User, RefreshToken, PasswordResetToken, EmailVerificat
 from app.services.user import get_user_by_email
 from app.core.email import send_email
 
-async def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
     """Authenticate user by email and password."""
     user = await get_user_by_email(db, email=email)
     if not user:
