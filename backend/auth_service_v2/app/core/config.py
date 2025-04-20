@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Environment
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = ENVIRONMENT == "development"
     
     # Security
@@ -23,12 +23,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     
     # Database
-    POSTGRES_SERVER: str = "localhost"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "password"
-    POSTGRES_DB: str = "candidatev_auth"
-    DATABASE_URL: Optional[str] = None
-    SQLALCHEMY_DATABASE_URI: Optional[str] = None
+    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
+    SQLALCHEMY_DATABASE_URI: Optional[str] = DATABASE_URL
+    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "password")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "candidatev_auth")
 
     # CORS
     BACKEND_CORS_ORIGINS: Union[str, List[str]] = "*"
