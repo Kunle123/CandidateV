@@ -9,7 +9,7 @@ from app.api.deps.auth import get_current_active_superuser
 from app.api.deps.db import get_db
 from app.models.user import User, UserCreate, UserUpdate
 from app.db.models import AuditLog
-from app.models.audit import AuditLogSummary
+from app.models.audit import AuditLogSummary, UserActivity
 from app.services.user import (
     create_user,
     get_user,
@@ -198,7 +198,7 @@ async def get_audit_logs_summary(
         total_events=sum(action_counts.values()),
         action_counts=action_counts,
         failed_auth_attempts=failed_auth_count,
-        most_active_users=[{"user_id": user_id, "count": count} for user_id, count in user_activity]
+        most_active_users=[UserActivity(user_id=str(user_id), event_count=count) for user_id, count in user_activity]
     )
 
 @router.get("/audit-logs/security")
