@@ -7,9 +7,11 @@ import logging
 from alembic import command
 from alembic.config import Config
 import os
+import asyncio
+from pathlib import Path
 
 from .core.config import settings
-from .db.session import AsyncSessionLocal, engine, verify_database_connection
+from .db.session import AsyncSessionLocal, engine, verify_database_connection, init_db
 from .api.v1.api import api_router
 from .core.rate_limiter import RateLimitMiddleware
 
@@ -44,14 +46,9 @@ async def startup_event():
             logger.error("Failed to connect to database")
             raise RuntimeError("Database connection failed")
         
-        # Run migrations
-        try:
-            alembic_cfg = Config("alembic.ini")
-            command.upgrade(alembic_cfg, "head")
-            logger.info("Database migrations completed successfully")
-        except Exception as e:
-            logger.error(f"Failed to run migrations: {str(e)}")
-            raise
+        # Initialize database tables
+        await init_db()
+        logger.info("Database tables initialized successfully")
             
         logger.info("Application startup completed successfully")
     except Exception as e:
