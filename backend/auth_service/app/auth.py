@@ -1,13 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import uuid
+import logging
 
 from .database import get_db_session
 from .models import User, RefreshToken
 from .schemas import UserCreate, UserResponse, Token, RefreshToken as RefreshTokenSchema, TokenResponse, MessageResponse
-from .security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from .security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, oauth2_scheme
+
+# Get a logger instance
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth")
 
@@ -56,41 +60,48 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db_session))
     
     return new_user
 
-@router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db_session)):
-    # Find user by email
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=access_token_expires
-    )
-    
-    # Create refresh token
-    refresh_token_value = create_refresh_token()
-    refresh_token = RefreshToken(
-        user_id=user.id,
-        token=refresh_token_value,
-        expires_at=datetime.utcnow() + timedelta(days=30)
-    )
-    
-    db.add(refresh_token)
-    db.commit()
-    
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token_value,
-        "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    }
+# --- Simplified Login Endpoint for Debugging ---
+@router.post("/login", methods=["POST"]) # Explicitly add methods=["POST"]
+async def login(request: Request): # Accept raw Request
+    logger.info(f"=== SIMPLIFIED LOGIN ENDPOINT HIT (POST specified) ===") # Updated log message
+    body = await request.body()
+    logger.info(f"Raw request body received: {body.decode()}")
+    # Just return a dummy success to test routing
+    return {"message": "Simplified login endpoint reached successfully (POST specified)", "received_body": body.decode()}
+# --- End Simplified Login Endpoint ---
+
+# --- Original Login Function (Commented Out) ---
+# @router.post("/login", response_model=Token)
+# async def login_original(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db_session)):
+#     logger.info(f"=== LOGIN ENDPOINT HIT === User attempt: {form_data.username}") 
+#     user = db.query(User).filter(User.email == form_data.username).first()
+#     if not user or not verify_password(form_data.password, user.hashed_password):
+#         logger.warning(f"Login failed for user: {form_data.username} - Incorrect email or password / User not found") 
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Incorrect email or password",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+#     access_token = create_access_token(
+#         data={"sub": str(user.id)},
+#         expires_delta=access_token_expires
+#     )
+#     refresh_token_value = create_refresh_token()
+#     refresh_token = RefreshToken(
+#         user_id=user.id,
+#         token=refresh_token_value,
+#         expires_at=datetime.utcnow() + timedelta(days=30)
+#     )
+#     db.add(refresh_token)
+#     db.commit()
+#     return {
+#         "access_token": access_token,
+#         "refresh_token": refresh_token_value,
+#         "token_type": "bearer",
+#         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60
+#     }
+# --- End Original Login Function ---
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(refresh_token: RefreshTokenSchema, db: Session = Depends(get_db_session)):
