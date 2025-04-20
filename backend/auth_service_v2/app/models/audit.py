@@ -28,4 +28,4 @@ class AuditLogSummary(BaseModel):
     total_events: int
     action_counts: Dict[str, int]
     failed_auth_attempts: int
-    most_active_users: List[UserActivity] 
+    most_active_users: List[Dict[str, int]] 
