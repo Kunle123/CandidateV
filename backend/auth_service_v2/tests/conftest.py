@@ -1,6 +1,6 @@
 import os
 import pytest
-from typing import Generator, Dict
+from typing import Generator, Dict, AsyncGenerator
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
@@ -15,6 +15,18 @@ from app.main import app  # We'll create this later
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
 from app.api import deps
+
+# Set up test email configuration
+os.environ.update({
+    "MAIL_USERNAME": "test@example.com",
+    "MAIL_PASSWORD": "testpassword",
+    "MAIL_PORT": "587",
+    "MAIL_SERVER": "smtp.example.com",
+    "MAIL_FROM": "test@example.com",
+    "MAIL_TLS": "True",
+    "MAIL_SSL": "False",
+    "USE_CREDENTIALS": "True"
+})
 
 # Override the database URL for testing
 settings.DATABASE_URL = os.getenv(

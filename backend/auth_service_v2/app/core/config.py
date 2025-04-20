@@ -1,72 +1,95 @@
-from typing import List, Optional, Union
-from pydantic import AnyHttpUrl, EmailStr, validator
-from pydantic_settings import BaseSettings
-import secrets
-from functools import lru_cache
+"""Configuration settings."""
 import os
-import json
+from typing import Any, Dict, List, Optional, Union
+from pydantic import AnyHttpUrl, EmailStr, PostgresDsn, validator
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    """Application settings."""
     # Project Info
     PROJECT_NAME: str = "CandidateV Authentication Service"
     VERSION: str = "2.0.0"
+    
+    # API Configuration
     API_V1_STR: str = "/api/v1"
     
     # Environment
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-    DEBUG: bool = ENVIRONMENT == "development"
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     
     # Security
-    SECRET_KEY: str = secrets.token_urlsafe(32)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    ALGORITHM: str = "HS256"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-for-jwt")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 48
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     
-    # Database
-    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
-    SQLALCHEMY_DATABASE_URI: Optional[str] = DATABASE_URL
-    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "password")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "candidatev_auth")
-
-    # CORS
-    BACKEND_CORS_ORIGINS: Union[str, List[str]] = "*"
-    
-    # Email
-    SMTP_TLS: bool = True
-    SMTP_PORT: Optional[int] = None
-    SMTP_HOST: Optional[str] = None
-    SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    EMAILS_FROM_EMAIL: Optional[EmailStr] = None
-    EMAILS_FROM_NAME: Optional[str] = None
-
-    # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = 60
+    # CORS Configuration
+    BACKEND_CORS_ORIGINS: Union[str, List[str]] = os.getenv("BACKEND_CORS_ORIGINS", "*")
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
-        if isinstance(v, list):
-            return v
-        if v == "*":
-            return ["*"]
-        return [origin.strip() for origin in v.split(",") if origin.strip()]
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
+        """Validate CORS origins."""
+        if isinstance(v, str):
+            if v == "*":
+                return ["*"]
+            return [i.strip() for i in v.split(",")]
+        return v
+
+    # Database Configuration
+    POSTGRES_SCHEME: str = os.getenv("POSTGRES_SCHEME", "postgresql")
+    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "candidatev")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    
+    # The complete Database URL (optional, will be constructed if not provided)
+    DATABASE_URL: Optional[PostgresDsn] = None
+    
+    # SQLAlchemy Database URI (will be set by validator)
+    SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: dict[str, any]) -> str:
-        if values.get("DATABASE_URL"):
-            return values.get("DATABASE_URL")
+    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+        """Assemble database connection string."""
         if isinstance(v, str):
             return v
-        return f"postgresql://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}/{values.get('POSTGRES_DB')}"
+        
+        # First check if complete DATABASE_URL is provided
+        db_url = values.get("DATABASE_URL")
+        if db_url:
+            return db_url
+            
+        # Otherwise construct from components
+        return PostgresDsn.build(
+            scheme=values.get("POSTGRES_SCHEME"),
+            username=values.get("POSTGRES_USER"),
+            password=values.get("POSTGRES_PASSWORD"),
+            host=values.get("POSTGRES_SERVER"),
+            port=int(values.get("POSTGRES_PORT")),
+            path=f"/{values.get('POSTGRES_DB')}"
+        )
+
+    # Email Configuration
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "test@example.com")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "testpassword")
+    MAIL_FROM: EmailStr = os.getenv("MAIL_FROM", "test@example.com")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", "587"))
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.example.com")
+    MAIL_TLS: bool = os.getenv("MAIL_TLS", "True").lower() == "true"
+    MAIL_SSL: bool = os.getenv("MAIL_SSL", "False").lower() == "true"
+    USE_CREDENTIALS: bool = os.getenv("USE_CREDENTIALS", "True").lower() == "true"
+    MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "CandidateV")
+
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 
     class Config:
+        """Pydantic configuration."""
         case_sensitive = True
         env_file = ".env"
+        extra = "allow"  # Allow extra fields from environment variables
 
-@lru_cache()
-def get_settings() -> Settings:
-    return Settings()
-
-settings = get_settings() 
+settings = Settings() 

@@ -8,7 +8,7 @@ class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = None
     is_active: Optional[bool] = True
-    is_superuser: bool = False
+    is_superuser: Optional[bool] = False
     roles: List[str] = []
 
 class UserCreate(UserBase):
@@ -21,6 +21,16 @@ class UserUpdate(UserBase):
     """User update model."""
     password: Optional[constr(min_length=8)] = None
 
+class UserInDBBase(UserBase):
+    """Base user in DB schema."""
+    id: Optional[int] = None
+    hashed_password: str
+    roles: List[str] = []
+
+    class Config:
+        """Pydantic configuration."""
+        from_attributes = True
+
 class User(UserBase):
     """User model with all fields."""
     id: str
@@ -32,4 +42,8 @@ class User(UserBase):
 
     class Config:
         """Pydantic configuration."""
-        from_attributes = True 
+        from_attributes = True
+
+class UserInDB(UserInDBBase):
+    """User in DB schema (internal use)."""
+    pass 

@@ -1,54 +1,59 @@
 """User service module."""
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
+from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy.sql.expression import and_
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST
 from datetime import datetime
 
 from app.db.models import User, EmailVerificationToken
+from app.core.password import get_password_hash, verify_password
 from app.models.user import UserCreate, UserUpdate
-from app.core.security import get_password_hash, verify_password
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
-    """Get user by ID."""
-    result = await db.execute(select(User).filter(User.id == user_id))
+    """Get a user by ID."""
+    result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
-    """Get user by email."""
-    result = await db.execute(select(User).filter(User.email == email))
+    """Get a user by email."""
+    result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
 
 async def get_users(
     db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
-    role: Optional[str] = None
+    filters: Dict[str, Any] = None
 ) -> List[User]:
-    """
-    Get list of users.
-    Optionally filter by role if provided.
-    """
+    """Get a list of users."""
     query = select(User)
-    if role:
-        query = query.filter(User.roles.any(role))
-    result = await db.execute(query.offset(skip).limit(limit))
+    
+    if filters:
+        conditions = []
+        if filters.get("email"):
+            conditions.append(User.email.ilike(f"%{filters['email']}%"))
+        if filters.get("name"):
+            conditions.append(User.name.ilike(f"%{filters['name']}%"))
+        if filters.get("is_active") is not None:
+            conditions.append(User.is_active == filters["is_active"])
+        if filters.get("is_superuser") is not None:
+            conditions.append(User.is_superuser == filters["is_superuser"])
+        if conditions:
+            query = query.where(and_(*conditions))
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
     return result.scalars().all()
 
 async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
-    """Create new user."""
-    user = await get_user_by_email(db, email=user_in.email)
-    if user:
-        raise HTTPException(
-            status_code=HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
-    
+    """Create a new user."""
     db_user = User(
         email=user_in.email,
-        name=user_in.name,
         hashed_password=get_password_hash(user_in.password),
+        name=user_in.name,
+        is_active=True,
         is_superuser=user_in.is_superuser,
         roles=user_in.roles
     )
@@ -59,43 +64,36 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
 
 async def update_user(
     db: AsyncSession,
-    user: User,
+    db_user: User,
     user_in: UserUpdate
 ) -> User:
-    """Update user."""
-    if user_in.email is not None:
-        existing_user = await get_user_by_email(db, email=user_in.email)
-        if existing_user and existing_user.id != user.id:
-            raise HTTPException(
-                status_code=HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
-        user.email = user_in.email
+    """Update a user."""
+    update_data = user_in.model_dump(exclude_unset=True)
+    if "password" in update_data:
+        update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     
-    if user_in.password is not None:
-        user.hashed_password = get_password_hash(user_in.password)
+    for field, value in update_data.items():
+        setattr(db_user, field, value)
     
-    if user_in.name is not None:
-        user.name = user_in.name
-    
-    if user_in.is_active is not None:
-        user.is_active = user_in.is_active
-    
-    if user_in.roles is not None:
-        user.roles = user_in.roles
-    
-    db.add(user)
     await db.commit()
-    await db.refresh(user)
-    return user
+    await db.refresh(db_user)
+    return db_user
+
+async def delete_user(db: AsyncSession, user_id: int) -> bool:
+    """Delete a user."""
+    result = await db.execute(
+        delete(User).where(User.id == user_id)
+    )
+    await db.commit()
+    return bool(result.rowcount)
 
 async def authenticate_user(
     db: AsyncSession,
     email: str,
     password: str
 ) -> Optional[User]:
-    """Authenticate user by email and password."""
-    user = await get_user_by_email(db, email=email)
+    """Authenticate a user."""
+    user = await get_user_by_email(db, email)
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
