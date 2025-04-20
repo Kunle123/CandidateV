@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
+from sqlalchemy import text
 import os
 from app.core.config import settings
 from app.db.session import get_db
@@ -15,7 +16,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     """
     try:
         # Test database connection
-        await db.execute("SELECT 1")
+        await db.execute(text("SELECT 1"))
         return {
             "status": "healthy",
             "database": "connected",
@@ -30,10 +31,6 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         return {
             "status": "unhealthy",
             "database": "disconnected",
-            "version": settings.VERSION,
-            "environment": settings.ENVIRONMENT,
-            "project_name": settings.PROJECT_NAME,
-            "debug_mode": settings.DEBUG,
-            "timestamp": str(datetime.utcnow()),
-            "message": str(e)
+            "error": str(e),
+            "timestamp": str(datetime.utcnow())
         } 
