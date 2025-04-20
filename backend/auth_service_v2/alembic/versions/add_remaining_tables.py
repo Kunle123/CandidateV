@@ -1,7 +1,7 @@
 """Add remaining tables and columns
 
 Revision ID: add_remaining_tables
-Revises: add_roles_array
+Revises: 20250420_1325_49bbfcf10720
 Create Date: 2024-03-21 10:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'add_remaining_tables'
-down_revision = 'add_roles_array'
+down_revision = '20250420_1325_49bbfcf10720'
 branch_labels = None
 depends_on = None
 
