@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auth_service_v2"
+version = "0.1.0"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+description = "Authentication Service V2"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastapi",
+    "sqlalchemy",
+    "pydantic",
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "alembic",
+    "python-jose",
+    "passlib",
+    "python-multipart",
+    "psycopg2-binary",
+    "fastapi-mail",
+    "PyJWT",
+    "jsonschema",
+    "python-dotenv",
+    "bcrypt",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+namespaces = false 

@@ -86,4 +86,34 @@ start_ai_service.ps1
 *.pem
 *.key
 railway.json
-vercel.json 
+vercel.json
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+.env.local
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite3 
