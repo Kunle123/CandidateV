@@ -8,6 +8,7 @@ Create Date: 2024-03-21 10:00:00.000000
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision = 'add_remaining_tables'
@@ -15,95 +16,111 @@ down_revision = '20250420_1325_49bbfcf10720'
 branch_labels = None
 depends_on = None
 
+def column_exists(table, column):
+    """Check if a column exists in a table."""
+    conn = op.get_bind()
+    insp = Inspector.from_engine(conn)
+    columns = [c['name'] for c in insp.get_columns(table)]
+    return column in columns
+
 def upgrade():
-    # Add new columns to users table
-    op.add_column('users', sa.Column('email_verified', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('users', sa.Column('failed_login_attempts', sa.Integer(), nullable=False, server_default='0'))
-    op.add_column('users', sa.Column('last_login', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('users', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()))
-    op.add_column('users', sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()))
+    # Add new columns to users table if they don't exist
+    if not column_exists('users', 'email_verified'):
+        op.add_column('users', sa.Column('email_verified', sa.Boolean(), nullable=False, server_default='false'))
+    if not column_exists('users', 'failed_login_attempts'):
+        op.add_column('users', sa.Column('failed_login_attempts', sa.Integer(), nullable=False, server_default='0'))
+    if not column_exists('users', 'last_login'):
+        op.add_column('users', sa.Column('last_login', sa.DateTime(timezone=True), nullable=True))
+    if not column_exists('users', 'created_at'):
+        op.add_column('users', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()))
+    if not column_exists('users', 'updated_at'):
+        op.add_column('users', sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()))
 
-    # Create roles table
-    op.create_table(
-        'roles',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('name', sa.String(), nullable=False),
-        sa.Column('description', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('name')
-    )
+    # Create roles table if it doesn't exist
+    conn = op.get_bind()
+    insp = Inspector.from_engine(conn)
+    if 'roles' not in insp.get_table_names():
+        op.create_table(
+            'roles',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('name', sa.String(), nullable=False),
+            sa.Column('description', sa.String(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('name')
+        )
 
-    # Create user_roles association table
-    op.create_table(
-        'user_roles',
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('role_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE')
-    )
+    # Create other tables only if they don't exist
+    if 'user_roles' not in insp.get_table_names():
+        op.create_table(
+            'user_roles',
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('role_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ondelete='CASCADE'),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE')
+        )
 
-    # Create refresh_tokens table
-    op.create_table(
-        'refresh_tokens',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('token', sa.String(), nullable=False),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('revoked', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('device_info', sa.String(), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('token')
-    )
-    op.create_index('ix_refresh_tokens_token', 'refresh_tokens', ['token'])
+    if 'refresh_tokens' not in insp.get_table_names():
+        op.create_table(
+            'refresh_tokens',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('token', sa.String(), nullable=False),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+            sa.Column('revoked', sa.Boolean(), nullable=False, server_default='false'),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.Column('device_info', sa.String(), nullable=True),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('token')
+        )
+        op.create_index('ix_refresh_tokens_token', 'refresh_tokens', ['token'])
 
-    # Create password_reset_tokens table
-    op.create_table(
-        'password_reset_tokens',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('token', sa.String(), nullable=False),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('used', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('token')
-    )
-    op.create_index('ix_password_reset_tokens_token', 'password_reset_tokens', ['token'])
+    if 'password_reset_tokens' not in insp.get_table_names():
+        op.create_table(
+            'password_reset_tokens',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('token', sa.String(), nullable=False),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+            sa.Column('used', sa.Boolean(), nullable=False, server_default='false'),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('token')
+        )
+        op.create_index('ix_password_reset_tokens_token', 'password_reset_tokens', ['token'])
 
-    # Create email_verification_tokens table
-    op.create_table(
-        'email_verification_tokens',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('token', sa.String(), nullable=False),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('used', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('token')
-    )
-    op.create_index('ix_email_verification_tokens_token', 'email_verification_tokens', ['token'])
+    if 'email_verification_tokens' not in insp.get_table_names():
+        op.create_table(
+            'email_verification_tokens',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('token', sa.String(), nullable=False),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+            sa.Column('used', sa.Boolean(), nullable=False, server_default='false'),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('token')
+        )
+        op.create_index('ix_email_verification_tokens_token', 'email_verification_tokens', ['token'])
 
-    # Create audit_logs table
-    op.create_table(
-        'audit_logs',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('action', sa.String(), nullable=False),
-        sa.Column('details', postgresql.JSONB(), nullable=True),
-        sa.Column('ip_address', sa.String(), nullable=True),
-        sa.Column('user_agent', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('ix_audit_logs_action', 'audit_logs', ['action'])
-    op.create_index('ix_audit_logs_created_at', 'audit_logs', [sa.text('created_at DESC')])
+    if 'audit_logs' not in insp.get_table_names():
+        op.create_table(
+            'audit_logs',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.Column('action', sa.String(), nullable=False),
+            sa.Column('details', postgresql.JSONB(), nullable=True),
+            sa.Column('ip_address', sa.String(), nullable=True),
+            sa.Column('user_agent', sa.String(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+            sa.PrimaryKeyConstraint('id')
+        )
+        op.create_index('ix_audit_logs_action', 'audit_logs', ['action'])
+        op.create_index('ix_audit_logs_created_at', 'audit_logs', [sa.text('created_at DESC')])
 
 def downgrade():
     # Drop indexes
