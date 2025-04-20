@@ -1,25 +1,21 @@
 from fastapi import APIRouter
-from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends
-from sqlalchemy import text
-import os
-from app.core.config import settings
-from app.db.session import get_db
 from datetime import datetime
+from sqlalchemy import text
+from app.core.config import settings
+from app.db.session import db
 
 router = APIRouter()
 
 @router.get("/health")
-async def health_check(db: AsyncSession = Depends(get_db)):
+async def health_check():
     """
-    Health check endpoint that returns service status, version, and environment information.
+    Health check endpoint that verifies database connectivity
     """
     try:
-        # Test database connection
-        async with db as session:
+        async with db() as session:
+            # Execute a simple query to test database connection
             result = await session.execute(text("SELECT 1"))
-            await result.scalar()  # Ensure we can fetch the result
-            await session.commit()  # Commit the transaction
+            await result.scalar()
             
         return {
             "status": "healthy",
@@ -28,13 +24,16 @@ async def health_check(db: AsyncSession = Depends(get_db)):
             "environment": settings.ENVIRONMENT,
             "project_name": settings.PROJECT_NAME,
             "debug_mode": settings.DEBUG,
-            "timestamp": str(datetime.utcnow()),
-            "message": "Service is running normally"
+            "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
         return {
             "status": "unhealthy",
             "database": "disconnected",
-            "error": str(e),
-            "timestamp": str(datetime.utcnow())
+            "version": settings.VERSION,
+            "environment": settings.ENVIRONMENT,
+            "project_name": settings.PROJECT_NAME,
+            "debug_mode": settings.DEBUG,
+            "timestamp": datetime.utcnow().isoformat(),
+            "message": str(e)
         } 
