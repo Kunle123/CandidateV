@@ -22,9 +22,9 @@ COPY . .
 # Create and configure start script
 RUN echo '#!/bin/bash\n\
 python -m alembic upgrade head\n\
-PORT="${PORT:-8001}"\n\
+PORT="${PORT:-8000}"\n\
 echo "Starting server on port $PORT"\n\
-exec uvicorn app.main:app --host :: --port $PORT --workers ${UVICORN_WORKERS:-1}\n\
+exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-1}\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Command to run the application
