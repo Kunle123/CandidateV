@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 # revision identifiers, used by Alembic
 revision = '20250420_1325_49bbfcf10720'
-down_revision = None
+down_revision = 'create_users_table'
 branch_labels = None
 depends_on = None
 
