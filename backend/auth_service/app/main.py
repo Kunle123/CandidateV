@@ -7,7 +7,7 @@ import uuid
 from .auth import router as auth_router
 from .health import router as health_router
 from .middleware import setup_rate_limiter
-from .database import Base, engine
+# from .database import Base, engine # <-- Temporarily commented out
 
 # Configure logging
 logging.basicConfig(
@@ -58,16 +58,16 @@ app.include_router(health_router)
 
 @app.on_event("startup")
 async def startup():
-    logger.info("Starting up Authentication Service")
+    logger.info("Starting up Authentication Service (DB Import Disabled)")
     # Re-enable DB interaction now that DATABASE_URL reference is hopefully fixed
-    try:
-        logger.info("Creating database tables if they don't exist...")
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables checked/created.")
-    except Exception as e:
-        logger.error(f"Error creating database tables: {e}", exc_info=True)
-        # Depending on the error, you might want to prevent startup
-        raise e # Re-enable raising the error to see it clearly if it persists
+    # try:
+    #     logger.info("Creating database tables if they don't exist...")
+    #     # Base.metadata.create_all(bind=engine) # <-- Must be commented out
+    #     logger.info("Database tables checked/created.")
+    # except Exception as e:
+    #     logger.error(f"Error creating database tables: {e}", exc_info=True)
+    #     # Depending on the error, you might want to prevent startup
+    #     # raise e # Re-enable raising the error to see it clearly if it persists
     await setup_rate_limiter()
 
 @app.on_event("shutdown")
