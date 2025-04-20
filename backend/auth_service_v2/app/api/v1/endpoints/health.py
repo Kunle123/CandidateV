@@ -16,7 +16,11 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     """
     try:
         # Test database connection
-        await db.execute(text("SELECT 1"))
+        async with db as session:
+            result = await session.execute(text("SELECT 1"))
+            await result.scalar()  # Ensure we can fetch the result
+            await session.commit()  # Commit the transaction
+            
         return {
             "status": "healthy",
             "database": "connected",
