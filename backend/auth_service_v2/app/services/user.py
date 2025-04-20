@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST
+from datetime import datetime
 
-from app.db.models import User
+from app.db.models import User, EmailVerificationToken
 from app.models.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 
@@ -130,3 +131,25 @@ async def remove_user_role(
 def has_role(user: User, role: str) -> bool:
     """Check if user has specific role."""
     return user.is_superuser or role in user.roles 
+
+async def verify_user_email(db: AsyncSession, token: str) -> bool:
+    """Verify user's email using verification token."""
+    result = await db.execute(
+        select(EmailVerificationToken)
+        .filter(EmailVerificationToken.token == token)
+        .filter(EmailVerificationToken.expires_at > datetime.utcnow())
+    )
+    verification = result.scalar_one_or_none()
+    
+    if not verification:
+        return False
+        
+    user = await get_user_by_email(db, email=verification.email)
+    if not user:
+        return False
+        
+    user.email_verified = True
+    db.add(user)
+    await db.delete(verification)
+    await db.commit()
+    return True 
