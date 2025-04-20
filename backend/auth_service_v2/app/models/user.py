@@ -1,36 +1,35 @@
-"""User model and related schemas."""
+"""User models for authentication."""
 from typing import Optional, List
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, constr
 
 class UserBase(BaseModel):
-    """Shared properties."""
+    """Base user model."""
     email: Optional[EmailStr] = None
+    name: Optional[str] = None
     is_active: Optional[bool] = True
     is_superuser: bool = False
-    name: Optional[str] = None
     roles: List[str] = []
 
 class UserCreate(UserBase):
-    """Properties to receive via API on creation."""
+    """User creation model."""
     email: EmailStr
-    password: constr(min_length=8)
     name: str
+    password: constr(min_length=8)
 
 class UserUpdate(UserBase):
-    """Properties to receive via API on update."""
+    """User update model."""
     password: Optional[constr(min_length=8)] = None
 
-class UserInDBBase(UserBase):
-    """Base DB user schema."""
-    id: Optional[int] = None
+class User(UserBase):
+    """User model with all fields."""
+    id: str
+    email_verified: bool = False
+    failed_login_attempts: int = 0
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
-        from_attributes = True
-
-class User(UserInDBBase):
-    """Additional properties to return via API."""
-    pass
-
-class UserInDB(UserInDBBase):
-    """Additional properties stored in DB."""
-    hashed_password: str 
+        """Pydantic configuration."""
+        from_attributes = True 

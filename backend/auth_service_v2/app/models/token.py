@@ -1,6 +1,15 @@
-from pydantic import BaseModel
+"""Token models for authentication."""
 from typing import Optional
+from pydantic import BaseModel
 
-class TokenData(BaseModel):
-    """Token data model."""
-    sub: Optional[str] = None
+class Token(BaseModel):
+    """Token model for authentication responses."""
+    access_token: str
+    token_type: str
+    refresh_token: Optional[str] = None
+
+class TokenPayload(BaseModel):
+    """Token payload model for JWT claims."""
+    sub: str  # subject (user id)
+    exp: Optional[int] = None  # expiration time
+    type: Optional[str] = "access"  # token type (access or refresh)
