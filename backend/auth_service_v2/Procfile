@@ -1,1 +1,1 @@
-web: PYTHONDONTWRITEBYTECODE=1 python -B -m alembic upgrade head && PYTHONDONTWRITEBYTECODE=1 python -B -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-1} 
+web: PYTHONPATH=/app PYTHONDONTWRITEBYTECODE=1 python -B -c "import sys; print('Python path:', sys.path)" && PYTHONPATH=/app PYTHONDONTWRITEBYTECODE=1 python -B -m alembic upgrade head && PYTHONPATH=/app PYTHONDONTWRITEBYTECODE=1 python -B -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-1} --log-level debug 
