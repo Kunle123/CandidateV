@@ -1,10 +1,11 @@
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
-from typing import Generator
+"""Database session configuration."""
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import text
+from typing import AsyncGenerator
 from ..core.config import settings
 import logging
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, before_log, after_log
 import os
 
 logger = logging.getLogger(__name__)
@@ -12,114 +13,129 @@ logger = logging.getLogger(__name__)
 # Get database URL with priority for Railway's environment variable
 database_url = os.getenv("DATABASE_URL") or settings.DATABASE_URL or settings.SQLALCHEMY_DATABASE_URI
 
-# Create engine with connection pooling and adjusted timeouts
-engine = create_engine(
+# Convert database URL to async format if needed
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+
+# Create async engine
+engine = create_async_engine(
     database_url,
-    poolclass=QueuePool,
-    pool_size=5,
-    max_overflow=10,
-    pool_timeout=60,  # Increased timeout
-    pool_pre_ping=True,
-    pool_recycle=1800,  # Reduced recycle time
-    connect_args={
-        "connect_timeout": 60,  # Increased connection timeout
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 10,
-        "keepalives_count": 5
-    }
+    pool_size=10,  # Increased pool size
+    max_overflow=20,  # Increased max overflow
+    pool_timeout=30,  # Reduced pool timeout
+    pool_pre_ping=True,  # Enable connection health checks
+    pool_recycle=300,  # Recycle connections every 5 minutes
+    echo=settings.DEBUG,  # SQL logging in debug mode
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
 
 @retry(
-    stop=stop_after_attempt(5),  # Increased retry attempts
-    wait=wait_exponential(multiplier=1, min=4, max=20),  # Adjusted wait times
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    before=before_log(logger, logging.INFO),
+    after=after_log(logger, logging.WARN),
 )
-def get_db() -> Generator[Session, None, None]:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    Get database session with proper error handling and connection management.
+    Get async database session with proper error handling and connection management.
     Includes retry logic for transient database connection issues.
     """
-    db = SessionLocal()
-    try:
-        # Verify connection is alive
-        db.execute(text("SELECT 1"))
-        yield db
-    except Exception as e:
-        logger.error(f"Database session error: {str(e)}")
-        db.rollback()
-        raise
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as session:
+        try:
+            # Verify connection is alive
+            await session.execute(text("SELECT 1"))
+            yield session
+        except Exception as e:
+            logger.error(f"Database session error: {str(e)}")
+            await session.rollback()
+            raise
 
-def verify_database_connection() -> bool:
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    before=before_log(logger, logging.INFO),
+    after=after_log(logger, logging.WARN),
+)
+async def verify_database_connection() -> bool:
     """
     Verify database connection is working.
     Returns True if connection is successful, False otherwise.
     """
     try:
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        return True
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+            return True
     except Exception as e:
         logger.error(f"Database connection verification failed: {str(e)}")
         return False
-    finally:
-        db.close()
 
-def init_db() -> None:
+async def init_db() -> None:
     """
     Initialize database with required tables and initial data.
     """
     from ..db.models import Base
     try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully")
+        async with engine.begin() as conn:
+            # Create tables if they don't exist
+            await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
         raise
 
-def cleanup_expired_tokens(db: Session = None) -> None:
+async def cleanup_expired_tokens() -> None:
     """
     Cleanup expired tokens from the database.
-    
-    Args:
-        db: Optional database session. If not provided, a new session will be created.
     """
     from datetime import datetime
     from ..db.models import RefreshToken, PasswordResetToken, EmailVerificationToken
     
-    if db is None:
-        db = SessionLocal()
-        should_close = True
-    else:
-        should_close = False
-    
-    try:
-        now = datetime.utcnow()
-        
-        # Delete expired refresh tokens
-        db.query(RefreshToken).filter(
-            RefreshToken.expires_at < now
-        ).delete()
-        
-        # Delete expired password reset tokens
-        db.query(PasswordResetToken).filter(
-            PasswordResetToken.expires_at < now
-        ).delete()
-        
-        # Delete expired email verification tokens
-        db.query(EmailVerificationToken).filter(
-            EmailVerificationToken.expires_at < now
-        ).delete()
-        
-        db.commit()
-        logger.info("Expired tokens cleaned up successfully")
-    except Exception as e:
-        logger.error(f"Failed to cleanup expired tokens: {str(e)}")
-        db.rollback()
-        raise
-    finally:
-        if should_close:
-            db.close() 
+    async with AsyncSessionLocal() as session:
+        try:
+            now = datetime.utcnow()
+            
+            # Delete expired tokens in batches to avoid memory issues
+            batch_size = 1000
+            
+            # Delete expired refresh tokens
+            while True:
+                stmt = RefreshToken.__table__.delete().where(
+                    RefreshToken.expires_at < now
+                ).limit(batch_size)
+                result = await session.execute(stmt)
+                if result.rowcount == 0:
+                    break
+                await session.commit()
+            
+            # Delete expired password reset tokens
+            while True:
+                stmt = PasswordResetToken.__table__.delete().where(
+                    PasswordResetToken.expires_at < now
+                ).limit(batch_size)
+                result = await session.execute(stmt)
+                if result.rowcount == 0:
+                    break
+                await session.commit()
+            
+            # Delete expired email verification tokens
+            while True:
+                stmt = EmailVerificationToken.__table__.delete().where(
+                    EmailVerificationToken.expires_at < now
+                ).limit(batch_size)
+                result = await session.execute(stmt)
+                if result.rowcount == 0:
+                    break
+                await session.commit()
+            
+            logger.info("Expired tokens cleaned up successfully")
+        except Exception as e:
+            logger.error(f"Failed to cleanup expired tokens: {str(e)}")
+            await session.rollback()
+            raise 
