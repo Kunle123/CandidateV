@@ -17,7 +17,7 @@ email_conf = ConnectionConfig(
     MAIL_TLS=settings.SMTP_TLS,
     MAIL_SSL=False,
     USE_CREDENTIALS=True,
-    TEMPLATE_FOLDER="app/email-templates"
+    TEMPLATE_FOLDER="app/templates"
 )
 
 async def send_email(
