@@ -59,15 +59,15 @@ app.include_router(health_router)
 @app.on_event("startup")
 async def startup():
     logger.info("Starting up Authentication Service")
-    # Create database tables if they don't exist
-    try:
-        logger.info("Creating database tables if they don't exist...")
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables checked/created.")
-    except Exception as e:
-        logger.error(f"Error creating database tables: {e}", exc_info=True)
-        # Depending on the error, you might want to prevent startup
-        # raise e 
+    # Temporarily comment out DB interaction to isolate startup issues
+    # try:
+    #     logger.info("Creating database tables if they don't exist...")
+    #     Base.metadata.create_all(bind=engine)
+    #     logger.info("Database tables checked/created.")
+    # except Exception as e:
+    #     logger.error(f"Error creating database tables: {e}", exc_info=True)
+    #     # Depending on the error, you might want to prevent startup
+    #     # raise e 
     await setup_rate_limiter()
 
 @app.on_event("shutdown")
