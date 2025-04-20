@@ -17,7 +17,10 @@ try:
         MAIL_FROM_NAME=settings.EMAILS_FROM_NAME or "Auth Service",
         MAIL_TLS=settings.SMTP_TLS,
         MAIL_SSL=False,
+        MAIL_STARTTLS=True,
+        MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
+        VALIDATE_CERTS=True,
         TEMPLATE_FOLDER="app/templates"
     )
     fastmail = FastMail(email_conf)
