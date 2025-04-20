@@ -6,25 +6,32 @@ import os
 from contextlib import contextmanager
 import logging
 from fastapi import Depends
+import sqlalchemy # Import sqlalchemy for type hint
+
+# Import settings (assuming config.py is in the same directory)
+# If not, adjust the import path accordingly
+# from .config import settings 
+# We cannot directly import settings here as it might create circular dependency
+# if config.py also imports something from database.py indirectly later.
+# Instead, we pass the necessary URL to create_db_engine.
 
 logger = logging.getLogger(__name__)
 
 # Define Base before it's used by models (which might be imported elsewhere)
 Base = declarative_base()
 
-def create_db_engine():
-    """Creates the SQLAlchemy engine. Reads URL from env.
+def create_db_engine(database_url: str):
+    """Creates the SQLAlchemy engine using the provided URL.
     Raises Exception if connection fails.
     """
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    logger.info(f"Attempting DB connection using DATABASE_URL: {DATABASE_URL}")
-    if not DATABASE_URL:
-        logger.error("DATABASE_URL environment variable is not set")
-        raise ValueError("DATABASE_URL environment variable is not set")
+    logger.info(f"Attempting DB connection using provided URL...") # Don't log the full URL by default
+    if not database_url:
+        logger.error("Database URL provided to create_db_engine is empty")
+        raise ValueError("Database URL cannot be empty")
 
     try:
         engine = create_engine(
-            DATABASE_URL,
+            database_url,
             poolclass=QueuePool,
             pool_size=10,
             max_overflow=20,
@@ -82,3 +89,8 @@ def get_db_session(engine_instance: sqlalchemy.engine.Engine = Depends(lambda: a
          
     with get_db(engine_instance) as session:
         yield session 
+
+# Placeholder for get_db_session demonstrating potential issue
+# Need a way to get app.state.db_engine into the dependency
+def get_db_session_placeholder():#engine_instance: sqlalchemy.engine.Engine = Depends(lambda: app.state.db_engine)):
+    raise NotImplementedError("get_db_session dependency needs rework after lifespan changes") 
