@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_400_BAD_REQUEST
 
 from app.api.deps.db import get_db
@@ -25,13 +25,13 @@ router = APIRouter()
 
 @router.post("/login", response_model=Token)
 async def login(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Token:
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
@@ -48,7 +48,7 @@ async def login(
         user.id, expires_delta=access_token_expires
     )
     
-    refresh_token = create_refresh_token(db, user.id)
+    refresh_token = await create_refresh_token(db, user.id)
     
     return Token(
         access_token=access_token,
@@ -58,7 +58,7 @@ async def login(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     refresh_token: str = None
 ) -> Token:
     """
@@ -70,7 +70,7 @@ async def refresh_token(
             detail="Refresh token is required"
         )
     
-    token = get_refresh_token(db, refresh_token)
+    token = await get_refresh_token(db, refresh_token)
     if not token or token.is_expired() or token.revoked:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
@@ -92,7 +92,7 @@ async def refresh_token(
 async def request_password_reset(
     email: str,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
     Request a password reset token.
@@ -103,12 +103,12 @@ async def request_password_reset(
 @router.post("/password-reset/verify")
 async def verify_reset_token(
     token: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
     Verify that a password reset token is valid.
     """
-    is_valid = verify_password_reset_token(db, token)
+    is_valid = await verify_password_reset_token(db, token)
     if not is_valid:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
@@ -120,12 +120,12 @@ async def verify_reset_token(
 async def reset_user_password(
     token: str,
     new_password: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
     Reset password using a reset token.
     """
-    success = reset_password(db, token, new_password)
+    success = await reset_password(db, token, new_password)
     if not success:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
