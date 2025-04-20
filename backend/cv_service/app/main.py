@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Query, Body, Request
+from fastapi import FastAPI, HTTPException, Depends, status, Query, Body, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -222,95 +222,23 @@ async def get_cvs(
 
 @app.post("/api/cv", status_code=status.HTTP_201_CREATED)
 async def create_cv(
-    cv_data: CVCreate,
+    # cv_data: CVCreate, # REMOVE/COMMENT OUT this parameter
+    file: UploadFile = File(...), # ADD this parameter
     auth: dict = Depends(verify_token),
     db: Session = Depends(get_db_session)
 ):
-    """Create a new CV."""
-    user_id = auth["user_id"]
-    
-    # Generate UUID
-    cv_id = uuid.uuid4() if not is_sqlite else str(uuid.uuid4())
-    
-    # If this is the default CV, update other CVs
-    if cv_data.is_default:
-        # Find all default CVs for this user and set them to non-default
-        default_cvs = db.query(models.CV).filter(
-            models.CV.user_id == user_id,
-            models.CV.is_default == True
-        ).all()
-        
-        for cv in default_cvs:
-            cv.is_default = False
-        
-        db.commit()
-    
-    # Create new CV
-    now = datetime.utcnow()
-    
-    # If copying from existing CV
-    if cv_data.base_cv_id:
-        # Find base CV
-        base_cv = db.query(models.CV).filter(
-            models.CV.id == cv_data.base_cv_id,
-            models.CV.user_id == user_id
-        ).first()
-        
-        if not base_cv:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Base CV not found"
-            )
-        
-        # Create copy with new metadata
-        new_cv = models.CV(
-            id=cv_id,
-            user_id=user_id,
-            name=cv_data.name,
-            description=cv_data.description,
-            is_default=cv_data.is_default,
-            version=1,
-            template_id=cv_data.template_id or base_cv.template_id,
-            style_options=base_cv.style_options,
-            personal_info=base_cv.personal_info,
-            summary=base_cv.summary,
-            custom_sections=base_cv.custom_sections,
-            last_modified=now,
-            created_at=now,
-            updated_at=now
-        )
-        
-        db.add(new_cv)
-        db.commit()
-        db.refresh(new_cv)
-        
-        # TODO: Clone relationships (experiences, education, etc.)
-        
-        return serialize_cv(new_cv)
-    
-    else:
-        # Create blank CV
-        new_cv = models.CV(
-            id=cv_id,
-            user_id=user_id,
-            name=cv_data.name,
-            description=cv_data.description,
-            is_default=cv_data.is_default,
-            version=1,
-            template_id=cv_data.template_id,
-            style_options="{}" if is_sqlite else {},
-            personal_info="{}" if is_sqlite else {},
-            custom_sections="{}" if is_sqlite else {},
-            last_modified=now,
-            created_at=now,
-            updated_at=now
-        )
-        
-        db.add(new_cv)
-        db.commit()
-        db.refresh(new_cv)
-        
-        return serialize_cv(new_cv)
+    """Create a new CV from an uploaded file.""" # Updated docstring
+    # --- Function body will be replaced in Step 3.3 and 3.4 ---
+    # Placeholder until parsing logic is added
+    logger.info(f"Received file upload: {file.filename}, content type: {file.content_type}")
+    # We need to return something conforming to the original (or a new) response model
+    # For now, let's raise NotImplementedError until we add the parsing logic.
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="CV parsing logic not yet implemented.")
+
+    # --- Original function body (based on CVCreate) is now obsolete for this endpoint ---
+    # user_id = auth["user_id"]
+    # cv_id = uuid.uuid4() if not is_sqlite else str(uuid.uuid4())
+    # ... (rest of old logic for creating blank/copying CV) ...
 
 @app.get("/api/cv/{cv_id}")
 async def get_cv(
