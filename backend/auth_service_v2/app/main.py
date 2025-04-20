@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.sql import text
 
 from .core.config import settings
-from .db.session import SessionLocal, engine
+from .db.session import AsyncSessionLocal, engine
 from .api.v1.api import api_router
 from .core.rate_limiter import RateLimitMiddleware
 

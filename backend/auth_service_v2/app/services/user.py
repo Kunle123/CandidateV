@@ -1,6 +1,7 @@
 """User service module."""
 from typing import Optional, List
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST
 
@@ -8,16 +9,18 @@ from app.db.models import User
 from app.models.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 
-def get_user(db: Session, user_id: int) -> Optional[User]:
+async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
     """Get user by ID."""
-    return db.query(User).filter(User.id == user_id).first()
+    result = await db.execute(select(User).filter(User.id == user_id))
+    return result.scalar_one_or_none()
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     """Get user by email."""
-    return db.query(User).filter(User.email == email).first()
+    result = await db.execute(select(User).filter(User.email == email))
+    return result.scalar_one_or_none()
 
-def get_users(
-    db: Session,
+async def get_users(
+    db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
     role: Optional[str] = None
@@ -26,14 +29,15 @@ def get_users(
     Get list of users.
     Optionally filter by role if provided.
     """
-    query = db.query(User)
+    query = select(User)
     if role:
         query = query.filter(User.roles.any(role))
-    return query.offset(skip).limit(limit).all()
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
 
-def create_user(db: Session, user_in: UserCreate) -> User:
+async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     """Create new user."""
-    user = get_user_by_email(db, email=user_in.email)
+    user = await get_user_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
@@ -48,18 +52,18 @@ def create_user(db: Session, user_in: UserCreate) -> User:
         roles=user_in.roles
     )
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user
 
-def update_user(
-    db: Session,
+async def update_user(
+    db: AsyncSession,
     user: User,
     user_in: UserUpdate
 ) -> User:
     """Update user."""
     if user_in.email is not None:
-        existing_user = get_user_by_email(db, email=user_in.email)
+        existing_user = await get_user_by_email(db, email=user_in.email)
         if existing_user and existing_user.id != user.id:
             raise HTTPException(
                 status_code=HTTP_400_BAD_REQUEST,
@@ -80,25 +84,25 @@ def update_user(
         user.roles = user_in.roles
     
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
-def authenticate_user(
-    db: Session,
+async def authenticate_user(
+    db: AsyncSession,
     email: str,
     password: str
 ) -> Optional[User]:
     """Authenticate user by email and password."""
-    user = get_user_by_email(db, email=email)
+    user = await get_user_by_email(db, email=email)
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
         return None
     return user
 
-def add_user_role(
-    db: Session,
+async def add_user_role(
+    db: AsyncSession,
     user: User,
     role: str
 ) -> User:
@@ -106,12 +110,12 @@ def add_user_role(
     if role not in user.roles:
         user.roles = user.roles + [role]
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     return user
 
-def remove_user_role(
-    db: Session,
+async def remove_user_role(
+    db: AsyncSession,
     user: User,
     role: str
 ) -> User:
@@ -119,8 +123,8 @@ def remove_user_role(
     if role in user.roles:
         user.roles = [r for r in user.roles if r != role]
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     return user
 
 def has_role(user: User, role: str) -> bool:

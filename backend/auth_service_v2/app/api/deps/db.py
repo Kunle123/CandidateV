@@ -1,11 +1,11 @@
 """Database dependency module."""
-from typing import Generator
-from app.db.session import SessionLocal
+from typing import AsyncGenerator
+from app.db.session import AsyncSessionLocal
 
-def get_db() -> Generator:
+async def get_db() -> AsyncGenerator:
     """Get database session."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close() 
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close() 
