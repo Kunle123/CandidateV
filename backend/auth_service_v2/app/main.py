@@ -6,7 +6,7 @@ from sqlalchemy.sql import text
 
 from .core.config import settings
 from .db.session import SessionLocal
-from .api.api_v1.api import api_router
+from .api.v1.api import api_router
 from .core.rate_limiter import RateLimitMiddleware
 
 app = FastAPI(
