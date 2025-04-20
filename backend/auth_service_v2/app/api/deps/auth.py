@@ -1,80 +1,61 @@
-"""Authorization dependencies for role-based access control."""
-from typing import Annotated, Optional
-from fastapi import Depends, HTTPException, Security
+"""Authentication dependency module."""
+from typing import Generator
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
-from pydantic import ValidationError
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from starlette.status import HTTP_403_FORBIDDEN, HTTP_401_UNAUTHORIZED
-
 from app.core.config import settings
 from app.core.security import ALGORITHM
-from app.db.session import get_db
-from app.models.token import TokenPayload
-from app.models.user import User
-from app.services.user import get_user_by_id
+from app.db.models import User
+from app.api.deps.db import get_db
+from app.services.user import get_user
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login"
 )
 
 async def get_current_user(
-    db: Annotated[Session, Depends(get_db)],
-    token: Annotated[str, Depends(oauth2_scheme)]
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme)
 ) -> User:
-    """
-    Get the current user based on the JWT token.
-    Validates token and ensures user exists and is active.
-    """
+    """Get current user from token."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[ALGORITHM]
-        )
-        token_data = TokenPayload(**payload)
-    except (jwt.JWTError, ValidationError):
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
     
-    user = get_user_by_id(db, token_data.sub)
-    if not user:
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    if not user.is_active:
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="Inactive user"
-        )
+    user = get_user(db, user_id)
+    if user is None:
+        raise credentials_exception
     return user
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: User = Depends(get_current_user)
 ) -> User:
-    """Ensure the current user is active."""
+    """Get current active user."""
     if not current_user.is_active:
         raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
         )
     return current_user
 
 async def get_current_active_superuser(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: User = Depends(get_current_active_user)
 ) -> User:
-    """Ensure the current user is an active superuser."""
-    if not current_user.is_active:
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="Inactive user"
-        )
+    """Get current active superuser."""
     if not current_user.is_superuser:
         raise HTTPException(
-            status_code=HTTP_403_FORBIDDEN,
-            detail="The user doesn't have enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
         )
     return current_user
 
@@ -93,11 +74,11 @@ class RoleChecker:
     
     async def __call__(
         self,
-        current_user: Annotated[User, Depends(get_current_user)]
+        current_user: User = Depends(get_current_user)
     ) -> User:
         if not current_user.is_active:
             raise HTTPException(
-                status_code=HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Inactive user"
             )
         
@@ -112,7 +93,7 @@ class RoleChecker:
                 return current_user
         
         raise HTTPException(
-            status_code=HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="The user doesn't have enough privileges"
         )
 
