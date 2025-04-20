@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.sql import text
 
 from .core.config import settings
-from .db.session import SessionLocal
+from .db.session import SessionLocal, engine
 from .api.v1.api import api_router
 from .core.rate_limiter import RateLimitMiddleware
 
@@ -37,9 +37,10 @@ async def root():
 async def health_check():
     try:
         # Test database connection
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+            await conn.commit()
+        
         return {
             "status": "healthy",
             "version": settings.VERSION,
