@@ -1,1 +1,1 @@
-web: mkdir -p /app/app && cp -r app/* /app/app/ && cp -r alembic* /app/ && cd /app && python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-1} 
+web: pwd && ls -la && python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-1} 
