@@ -73,7 +73,7 @@ class DetailedJobMatchResponse(BaseModel):
 async def fetch_cv_data(cv_id: str, token: str) -> Dict[str, Any]:
     """Fetch CV data from the CV service."""
     fetch_id = f"fetch-{cv_id[:8]}" # Short ID for fetch logging
-    logger.info(f"[{fetch_id}] Starting fetch_cv_data")
+    logger.info(f"[{fetch_id}] >>> ENTERING fetch_cv_data function")
     
     # For testing: Return mock data if the cv_id is test-cv-id
     if cv_id == "test-cv-id":
@@ -148,21 +148,15 @@ async def fetch_cv_data(cv_id: str, token: str) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {"Authorization": f"Bearer {token}"}
-            logger.info(f"[{fetch_id}] Making GET request to CV service...")
+            logger.info(f"[{fetch_id}] Attempting GET request to CV service...")
             response = await client.get(full_url, headers=headers)
-            logger.info(f"[{fetch_id}] Received response from CV service. Status: {response.status_code}")
+            logger.info(f"[{fetch_id}] <<< Received response from CV service. Status: {response.status_code}")
             
-            # Log response headers for debugging if needed
-            # logger.debug(f"[{fetch_id}] CV Service Response Headers: {response.headers}")
-
             response.raise_for_status() # Raise exception for 4xx/5xx status codes
             
             logger.info(f"[{fetch_id}] Attempting to parse JSON response body...")
-            # --- Potential OOM crash point --- 
             json_response = response.json()
-            # ----------------------------------
             logger.info(f"[{fetch_id}] Successfully parsed JSON response.")
-            logger.debug(f"[{fetch_id}] Parsed CV data snippet: {str(json_response)[:200]}...")
             return json_response
             
     except httpx.HTTPStatusError as e:
@@ -188,6 +182,8 @@ async def fetch_cv_data(cv_id: str, token: str) -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing response from CV service: {str(e)}"
         )
+    finally:
+        logger.info(f"[{fetch_id}] <<< EXITING fetch_cv_data function")
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=0.5, max=10))
 async def analyze_job_match(cv_data: Dict[str, Any], job_description: str) -> Dict[str, Any]:
@@ -539,61 +535,54 @@ async def job_match(
 
 @router.post("/job-match/analyze", response_model=DetailedJobMatchResponse)
 async def job_match_analyze(
-    # Changed from Pydantic model to raw Request to bypass auto-validation
-    request: Request, 
+    request: Request,
     # user_token: str = Depends(oauth2_scheme) # Temporarily commented out for debugging
 ):
-    """Perform a detailed job match analysis."""
+    """
+    Analyze a CV against a job description using AI to provide detailed matching information.
+    """
+    logger.info("==== DETAILED JOB MATCH ANALYZE ENDPOINT HIT ====") 
     
-    # --- Manual Request Parsing & Validation --- 
-    request_body = None
+    # --- Debugging: Log raw request ---
     try:
-        request_body = await request.json()
-        logger.debug(f"Raw request body parsed successfully: {str(request_body)[:500]}...")
-    except Exception as json_error:
-        logger.error(f"Failed to parse request JSON body: {json_error}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid JSON body: {json_error}"
-        )
+        raw_body = await request.body()
+        logger.debug(f"Raw request body: {raw_body.decode()}")
+        try:
+            request_data = json.loads(raw_body.decode())
+            logger.info(f"Received JSON body: {request_data}")
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse request body as JSON. Treating as raw.")
+            request_data = {"raw_body": raw_body.decode()}
+    except Exception as e:
+        logger.error(f"Error reading or parsing request body: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not read request body.")
+    # --- End Debugging ---
 
-    cv_id = request_body.get("cv_id")
-    job_description = request_body.get("job_description")
-    # detailed = request_body.get("detailed", True) # Use default if missing
-
-    if not cv_id or not job_description:
-        logger.error(f"Missing 'cv_id' or 'job_description' in request body. Body: {request_body}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="'cv_id' and 'job_description' are required in the request body."
-        )
-    # --- End Manual Parsing ---
-
-    request_id = cv_id # Use cv_id for simple request tracking
-    logger.info(f"[{request_id}] Entering job_match_analyze (manual parsing successful)")
+    cv_id = request_data.get("cv_id")
+    job_description = request_data.get("job_description")
     
-    # Check if service token is configured
+    if not cv_id or not job_description:
+        logger.error(f"Missing 'cv_id' or 'job_description' in request data: {request_data}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing cv_id or job_description")
+
     if not CV_SERVICE_AUTH_TOKEN:
-        logger.error(f"[{request_id}] CV_SERVICE_AUTH_TOKEN not set. Cannot proceed.")
+        logger.error("CV_SERVICE_AUTH_TOKEN not set. Cannot fetch CV data.")
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
             detail="Internal configuration error: CV Service authentication token missing."
         )
-    logger.debug(f"[{request_id}] CV Service Auth Token is configured.")
         
     # Fetch CV data using the service token
-    cv_data = None
     try:
-        logger.info(f"[{request_id}] Attempting to fetch CV data...")
+        logger.info(f"job_match_analyze: Attempting to call fetch_cv_data for ID: {cv_id}")
         cv_data = await fetch_cv_data(cv_id, CV_SERVICE_AUTH_TOKEN)
-        logger.info(f"[{request_id}] Successfully fetched CV data.")
-        logger.debug(f"[{request_id}] CV data snippet: {str(cv_data)[:200]}...") # Log snippet for debug
+        logger.info(f"job_match_analyze: Successfully returned from fetch_cv_data for ID: {cv_id}") 
     except HTTPException as e:
-        logger.error(f"[{request_id}] HTTPException during CV data fetch: Status={e.status_code}, Detail={e.detail}")
+        logger.error(f"[{cv_id}] HTTPException during CV data fetch: Status={e.status_code}, Detail={e.detail}")
         # Re-raise the exception to let FastAPI handle the response
         raise e 
     except Exception as e:
-        logger.error(f"[{request_id}] Unexpected error during CV data fetch: {str(e)}", exc_info=True)
+        logger.error(f"[{cv_id}] Unexpected error during CV data fetch: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error fetching CV data: {str(e)}"
@@ -601,32 +590,32 @@ async def job_match_analyze(
         
     # Check if OpenAI client is available before proceeding
     if not client:
-        logger.error(f"[{request_id}] OpenAI client not available. Cannot proceed.")
+        logger.error(f"[{cv_id}] OpenAI client not available. Cannot proceed.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OpenAI service is not configured or unavailable."
         )
-    logger.debug(f"[{request_id}] OpenAI client is available.")
+    logger.debug(f"[{cv_id}] OpenAI client is available.")
 
     # Analyze the detailed job match using OpenAI
     analysis_result = None
     try:
-        logger.info(f"[{request_id}] Attempting detailed job match analysis via OpenAI...")
+        logger.info(f"[{cv_id}] Attempting detailed job match analysis via OpenAI...")
         analysis_result = await analyze_detailed_job_match(cv_data, job_description)
-        logger.info(f"[{request_id}] Successfully received analysis from OpenAI.")
-        logger.debug(f"[{request_id}] OpenAI analysis result snippet: {str(analysis_result)[:200]}...")
+        logger.info(f"[{cv_id}] Successfully received analysis from OpenAI.")
+        logger.debug(f"[{cv_id}] OpenAI analysis result snippet: {str(analysis_result)[:200]}...")
     except HTTPException as e:
-        logger.error(f"[{request_id}] HTTPException during OpenAI analysis: Status={e.status_code}, Detail={e.detail}")
+        logger.error(f"[{cv_id}] HTTPException during OpenAI analysis: Status={e.status_code}, Detail={e.detail}")
         raise e
     except Exception as e:
-        logger.error(f"[{request_id}] Unexpected error during OpenAI analysis: {str(e)}", exc_info=True)
+        logger.error(f"[{cv_id}] Unexpected error during OpenAI analysis: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error during detailed job match analysis: {str(e)}"
         )
 
     # Prepare the response
-    logger.info(f"[{request_id}] Preparing final response.")
+    logger.info(f"[{cv_id}] Preparing final response.")
     response = DetailedJobMatchResponse(
         cv_id=cv_id,
         job_description=job_description,
@@ -641,5 +630,5 @@ async def job_match_analyze(
         sections=analysis_result.get("sections", {}),
         timestamp=datetime.utcnow()
     )
-    logger.info(f"[{request_id}] Job match analysis complete. Returning response.")
+    logger.info(f"[{cv_id}] Job match analysis complete. Returning response.")
     return response 
