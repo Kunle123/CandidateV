@@ -54,16 +54,10 @@ class Settings(BaseSettings):
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: dict[str, any]) -> str:
-        # First priority: Railway's DATABASE_URL
-        if os.getenv("DATABASE_URL"):
-            return os.getenv("DATABASE_URL")
-        # Second priority: Manually set DATABASE_URL
         if values.get("DATABASE_URL"):
             return values.get("DATABASE_URL")
-        # Third priority: Existing SQLALCHEMY_DATABASE_URI
         if isinstance(v, str):
             return v
-        # Last resort: Construct from individual components
         return f"postgresql://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}/{values.get('POSTGRES_DB')}"
 
     class Config:
