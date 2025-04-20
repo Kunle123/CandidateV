@@ -10,12 +10,32 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Get database URL with priority for Railway's environment variable
-database_url = os.getenv("DATABASE_URL") or settings.DATABASE_URL or settings.SQLALCHEMY_DATABASE_URI
+def get_database_url() -> str:
+    """Get database URL with proper error handling and logging."""
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        logger.warning("DATABASE_URL not found in environment, falling back to settings")
+        database_url = settings.DATABASE_URL or settings.SQLALCHEMY_DATABASE_URI
+    
+    if not database_url:
+        error_msg = "No database URL configured. Please set DATABASE_URL environment variable."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    # Convert database URL to async format if needed
+    if database_url.startswith("postgresql://"):
+        logger.info("Converting database URL to async format")
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+    elif not database_url.startswith("postgresql+asyncpg://"):
+        error_msg = f"Invalid database URL format: {database_url}. Must start with postgresql:// or postgresql+asyncpg://"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    logger.info(f"Using database URL format: {database_url.split('@')[0].split('://')[0]}://*****@*****")
+    return database_url
 
-# Convert database URL to async format if needed
-if database_url.startswith("postgresql://"):
-    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+# Get database URL
+database_url = get_database_url()
 
 # Create async engine
 engine = create_async_engine(
@@ -35,6 +55,21 @@ AsyncSessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
 )
+
+# Context manager for database sessions
+class db:
+    def __init__(self):
+        self.session = None
+
+    async def __aenter__(self) -> AsyncSession:
+        self.session = AsyncSessionLocal()
+        return self.session
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            if exc_type:
+                await self.session.rollback()
+            await self.session.close()
 
 @retry(
     stop=stop_after_attempt(3),
