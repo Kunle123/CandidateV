@@ -1,7 +1,7 @@
 [build]
 # Trigger rebuild - Database connection configured
 builder = "nixpacks"
-buildDirectory = "."
+buildDirectory = "backend/auth_service_v2"
 watchPatterns = ["/"]
 
 [deploy]
