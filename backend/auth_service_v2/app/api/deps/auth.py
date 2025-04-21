@@ -5,14 +5,10 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
-from app.core.security import verify_password
+from app.core.security import oauth2_scheme
 from app.db.models import User
 from app.api.deps.db import get_db
 from app.services.user import get_user
-
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login"
-)
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
