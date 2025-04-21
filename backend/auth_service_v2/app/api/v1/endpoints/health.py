@@ -20,7 +20,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         # Execute a simple query to test database connection
         logger.debug("Executing test query...")
         result = await db.execute(text("SELECT 1"))
-        await result.scalar()
+        value = result.scalar()  # No need to await scalar() as it's not async
         logger.info("Health check successful - database connection verified")
         
         return {
