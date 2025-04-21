@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST
 
@@ -22,7 +22,7 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Opti
         return None
     return user
 
-def create_refresh_token(db: Session, user_id: str) -> RefreshToken:
+async def create_refresh_token(db: AsyncSession, user_id: str) -> RefreshToken:
     """Create a new refresh token for user."""
     token = RefreshToken(
         token=str(uuid4()),
@@ -30,25 +30,28 @@ def create_refresh_token(db: Session, user_id: str) -> RefreshToken:
         expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
     db.add(token)
-    db.commit()
-    db.refresh(token)
+    await db.commit()
+    await db.refresh(token)
     return token
 
-def get_refresh_token(db: Session, token: str) -> Optional[RefreshToken]:
+async def get_refresh_token(db: AsyncSession, token: str) -> Optional[RefreshToken]:
     """Get refresh token by token string."""
-    return db.query(RefreshToken).filter(RefreshToken.token == token).first()
+    result = await db.execute(
+        select(RefreshToken).where(RefreshToken.token == token)
+    )
+    return result.scalar_one_or_none()
 
-def revoke_refresh_token(db: Session, token: str) -> bool:
+async def revoke_refresh_token(db: AsyncSession, token: str) -> bool:
     """Revoke a refresh token."""
-    db_token = get_refresh_token(db, token)
+    db_token = await get_refresh_token(db, token)
     if not db_token:
         return False
     db_token.revoked = True
     db.add(db_token)
-    db.commit()
+    await db.commit()
     return True
 
-def create_password_reset_token(db: Session, user: User) -> PasswordResetToken:
+async def create_password_reset_token(db: AsyncSession, user: User) -> PasswordResetToken:
     """Create a password reset token."""
     token = PasswordResetToken(
         token=str(uuid4()),
@@ -56,26 +59,29 @@ def create_password_reset_token(db: Session, user: User) -> PasswordResetToken:
         expires_at=datetime.utcnow() + timedelta(hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS)
     )
     db.add(token)
-    db.commit()
-    db.refresh(token)
+    await db.commit()
+    await db.refresh(token)
     return token
 
-def get_password_reset_token(db: Session, token: str) -> Optional[PasswordResetToken]:
+async def get_password_reset_token(db: AsyncSession, token: str) -> Optional[PasswordResetToken]:
     """Get password reset token by token string."""
-    return db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
+    result = await db.execute(
+        select(PasswordResetToken).where(PasswordResetToken.token == token)
+    )
+    return result.scalar_one_or_none()
 
-def verify_password_reset_token(db: Session, token: str) -> bool:
+async def verify_password_reset_token(db: AsyncSession, token: str) -> bool:
     """Verify that a password reset token is valid."""
-    db_token = get_password_reset_token(db, token)
+    db_token = await get_password_reset_token(db, token)
     if not db_token:
         return False
     if db_token.used or db_token.expires_at < datetime.utcnow():
         return False
     return True
 
-def reset_password(db: Session, token: str, new_password: str) -> bool:
+async def reset_password(db: AsyncSession, token: str, new_password: str) -> bool:
     """Reset user's password using a reset token."""
-    db_token = get_password_reset_token(db, token)
+    db_token = await get_password_reset_token(db, token)
     if not db_token or db_token.used or db_token.expires_at < datetime.utcnow():
         return False
     
@@ -85,10 +91,10 @@ def reset_password(db: Session, token: str, new_password: str) -> bool:
     
     db.add(user)
     db.add(db_token)
-    db.commit()
+    await db.commit()
     return True
 
-def create_email_verification_token(db: Session, user: User) -> EmailVerificationToken:
+async def create_email_verification_token(db: AsyncSession, user: User) -> EmailVerificationToken:
     """Create an email verification token."""
     token = EmailVerificationToken(
         token=str(uuid4()),
@@ -96,13 +102,17 @@ def create_email_verification_token(db: Session, user: User) -> EmailVerificatio
         expires_at=datetime.utcnow() + timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS)
     )
     db.add(token)
-    db.commit()
-    db.refresh(token)
+    await db.commit()
+    await db.refresh(token)
     return token
 
-def verify_email_token(db: Session, token: str) -> bool:
+async def verify_email_token(db: AsyncSession, token: str) -> bool:
     """Verify an email verification token."""
-    db_token = db.query(EmailVerificationToken).filter(EmailVerificationToken.token == token).first()
+    result = await db.execute(
+        select(EmailVerificationToken).where(EmailVerificationToken.token == token)
+    )
+    db_token = result.scalar_one_or_none()
+    
     if not db_token or db_token.used or db_token.expires_at < datetime.utcnow():
         return False
     
@@ -112,16 +122,16 @@ def verify_email_token(db: Session, token: str) -> bool:
     
     db.add(user)
     db.add(db_token)
-    db.commit()
+    await db.commit()
     return True
 
-async def send_password_reset_email(db: Session, email: str) -> None:
+async def send_password_reset_email(db: AsyncSession, email: str) -> None:
     """Send password reset email to user."""
-    user = get_user_by_email(db, email)
+    user = await get_user_by_email(db, email)
     if not user:
         return
     
-    token = create_password_reset_token(db, user)
+    token = await create_password_reset_token(db, user)
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token.token}"
     
     await send_email(
@@ -135,13 +145,13 @@ async def send_password_reset_email(db: Session, email: str) -> None:
         }
     )
 
-async def send_verification_email(db: Session, email: str) -> None:
+async def send_verification_email(db: AsyncSession, email: str) -> None:
     """Send email verification link to user."""
-    user = get_user_by_email(db, email)
+    user = await get_user_by_email(db, email)
     if not user:
         return
     
-    token = create_email_verification_token(db, user)
+    token = await create_email_verification_token(db, user)
     verification_link = f"{settings.FRONTEND_URL}/verify-email?token={token.token}"
     
     await send_email(
