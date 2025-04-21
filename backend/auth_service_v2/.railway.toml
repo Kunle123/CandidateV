@@ -9,15 +9,17 @@ watchPatterns = ["/"]
 [deploy]
 startCommand = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
 healthcheckPath = "/api/v1/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 60  # Reduced from 300 to fail faster if unhealthy
 restartPolicyType = "on_failure"
-healthcheckInterval = 45
-restartPolicyMaxRetries = 5
+healthcheckInterval = 15  # Reduced from 45 to check more frequently
+restartPolicyMaxRetries = 3  # Reduced from 5 to fail faster
+numReplicas = 1  # Ensure only one instance runs at a time
 
 [deploy.envVars]
 ENVIRONMENT = "production"
 DEBUG = "false"
 USE_SYNC_DRIVER = "true"
+DEPLOYMENT_ID = "${RAILWAY_DEPLOYMENT_ID}"  # Track unique deployment ID
 
 # Database configuration
 DATABASE_URL = "${DATABASE_URL}"
@@ -48,12 +50,16 @@ SMTP_PASSWORD = "${SMTP_PASSWORD}"
 EMAILS_FROM_EMAIL = "${EMAILS_FROM_EMAIL}"
 EMAILS_FROM_NAME = "${PROJECT_NAME}"
 
-# Connection pool settings
-POOL_SIZE = "5"
-MAX_OVERFLOW = "10"
-POOL_TIMEOUT = "30"
-POOL_RECYCLE = "1800"
+# Connection pool settings - Adjusted for multiple deployments
+POOL_SIZE = "3"  # Reduced from 5 to prevent connection exhaustion
+MAX_OVERFLOW = "5"  # Reduced from 10
+POOL_TIMEOUT = "10"  # Reduced from 30 to fail faster
+POOL_RECYCLE = "300"  # Reduced from 1800 to recycle connections more frequently
 ECHO_SQL = "false"
+
+# Deployment settings
+STARTUP_GRACE_PERIOD = "30"  # Grace period in seconds before health checks start
+MAX_DEPLOYMENT_TIME = "180"  # Maximum time in seconds for deployment to complete
 
 # Temporarily removed health check config
 # healthcheckPath = "/api/v1/health"
