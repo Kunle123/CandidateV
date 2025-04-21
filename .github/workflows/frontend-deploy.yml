@@ -25,21 +25,21 @@ jobs:
 
       - name: Pull Vercel Environment Information
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: bG4NR38qasL2ja5MzVyqpxC7
           VERCEL_PROJECT_ID: prj_G3g1f6wtayvXMO2RY56OxY9bDzGa
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_ORG_ID: team_W6HoUZfXBQCYgPXZVyPVbBpX
         run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
 
       - name: Build Project Artifacts
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: bG4NR38qasL2ja5MzVyqpxC7
           VERCEL_PROJECT_ID: prj_G3g1f6wtayvXMO2RY56OxY9bDzGa
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_ORG_ID: team_W6HoUZfXBQCYgPXZVyPVbBpX
         run: vercel build --prod --token=$VERCEL_TOKEN
 
       - name: Deploy Project Artifacts to Vercel
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: bG4NR38qasL2ja5MzVyqpxC7
           VERCEL_PROJECT_ID: prj_G3g1f6wtayvXMO2RY56OxY9bDzGa
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_ORG_ID: team_W6HoUZfXBQCYgPXZVyPVbBpX
         run: vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN 
