@@ -15,5 +15,15 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      external: [],
+      output: {
+        manualChunks: {
+          'supabase': ['@supabase/supabase-js'],
+        }
+      }
+    }
   }
 }) 
