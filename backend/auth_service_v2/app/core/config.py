@@ -75,18 +75,11 @@ class Settings(BaseSettings):
             
         # Otherwise construct from components
         try:
-            # Build URL with async scheme
-            return PostgresDsn.build(
-                scheme=values.get("POSTGRES_SCHEME"),
-                username=values.get("POSTGRES_USER"),
-                password=values.get("POSTGRES_PASSWORD"),
-                host=values.get("POSTGRES_SERVER"),
-                port=int(values.get("POSTGRES_PORT")),
-                path=f"/{values.get('POSTGRES_DB')}"
-            )
+            # Manually construct the URL since we're using a custom scheme
+            return f"{values.get('POSTGRES_SCHEME')}://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
         except Exception as e:
-            # Fallback to manual construction if PostgresDsn.build fails
-            return f"postgresql+asyncpg://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
+            print(f"Error constructing database URL: {e}")
+            return None
 
     # Email Configuration
     MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
