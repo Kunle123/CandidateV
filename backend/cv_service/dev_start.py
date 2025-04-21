@@ -53,7 +53,7 @@ def set_environment_variables():
     os.environ["BASE_URL"] = f"http://localhost:{os.environ['PORT']}"
     
     # CORS settings
-    os.environ["CORS_ORIGINS"] = "http://localhost:3000,http://localhost:5173,https://candidatev.vercel.app"
+    os.environ["CORS_ORIGINS"] = "http://localhost:3000,http://localhost:5173,https://candidatev.vercel.app,https://candidate-v-frontend.vercel.app"
     
     # Storage settings
     os.environ["USE_LOCAL_STORAGE"] = "true"

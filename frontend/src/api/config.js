@@ -5,12 +5,12 @@
 // Environment detection
 const isDevelopment = import.meta.env.DEV;
 const isProduction = import.meta.env.PROD;
-const environment = isProduction ? 'production' : 'development';
+const environment = process.env.NODE_ENV || 'development';
 
 // Base URLs for different environments
 const BASE_URLS = {
   development: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
-  production: 'https://api-gw-production.up.railway.app/api',
+  production: '/api', // Use relative path for same-origin requests in production
   test: 'http://localhost:3000/api'
 };
 
@@ -46,31 +46,38 @@ const config = {
   // Service endpoints (for special cases)
   endpoints: {
     auth: {
-      login: '/auth/login',
-      register: '/auth/register',
-      refreshToken: '/auth/refresh',
-      logout: '/auth/logout'
+      signUp: '/auth/signup',
+      signIn: '/auth/signin',
+      signOut: '/auth/signout',
+      refresh: '/auth/refresh',
+      resetPassword: '/auth/reset-password',
+      verifyEmail: '/auth/verify-email'
     },
     user: {
       profile: '/users/me',
-      preferences: '/users/me/preferences'
+      preferences: '/users/preferences'
     },
     cv: {
       templates: '/cv/templates',
-      cvs: '/cv'
+      list: '/cv',
+      create: '/cv',
+      update: '/cv/:id',
+      delete: '/cv/:id'
     },
     export: {
       formats: '/export/formats',
-      jobs: '/export'
+      generate: '/export/generate',
+      download: '/export/download/:id'
     },
     ai: {
       analyze: '/ai/analyze',
-      improve: '/ai/improve',
-      generate: '/ai/generate'
+      optimize: '/ai/optimize',
+      coverLetter: '/ai/cover-letter'
     },
     payment: {
-      plans: '/payments/plans',
-      subscription: '/payments/subscription'
+      plans: '/payment/plans',
+      subscribe: '/payment/subscribe',
+      cancel: '/payment/cancel'
     }
   }
 };

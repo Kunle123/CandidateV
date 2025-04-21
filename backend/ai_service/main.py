@@ -1,10 +1,12 @@
 import os
 from dotenv import load_dotenv
+import openai
+from typing import Optional, Dict, Any
 
 # Load environment variables from .env file
 load_dotenv()
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import time
@@ -36,7 +38,7 @@ from app.job_match import router as job_match_router
 from app.cover_letter import router as cover_letter_router
 
 # Configure CORS
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000,https://candidate-v-frontend.vercel.app").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -63,10 +65,72 @@ async def add_request_id_and_log(request: Request, call_next):
     response.headers["X-Request-ID"] = request_id
     return response
 
-# Verify OpenAI API key is set
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    logger.warning("OPENAI_API_KEY environment variable is not set. AI features will not work correctly.")
+# Initialize OpenAI client
+openai_api_key = os.getenv("OPENAI_API_KEY")
+openai_client = None
+if openai_api_key:
+    openai_client = openai.OpenAI(api_key=openai_api_key)
+
+def get_mock_analysis() -> Dict[str, Any]:
+    """Return mock analysis data when OpenAI is not available"""
+    return {
+        "match_score": 65,
+        "strengths": [
+            "Strong technical background",
+            "Good communication skills",
+            "Project management experience"
+        ],
+        "weaknesses": [
+            "Limited leadership experience",
+            "Could improve industry-specific knowledge"
+        ],
+        "missing_keywords": [
+            "agile methodology",
+            "cloud infrastructure",
+            "team leadership"
+        ]
+    }
+
+@app.post("/analyze")
+async def analyze_cv(cv_id: str, job_description: str) -> Dict[str, Any]:
+    """Analyze CV against job description"""
+    if not openai_client:
+        # Return mock data with a warning
+        return {
+            "success": True,
+            "data": get_mock_analysis(),
+            "warning": "Using mock data - AI service is currently offline"
+        }
+        
+    try:
+        # Your existing OpenAI analysis code here
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a CV analysis expert. Analyze the CV against the job description."
+                },
+                {
+                    "role": "user", 
+                    "content": f"Analyze this CV (ID: {cv_id}) against the job description: {job_description}"
+                }
+            ]
+        )
+        
+        # Process OpenAI response
+        analysis = response.choices[0].message.content
+        
+        return {
+            "success": True,
+            "data": analysis
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze CV: {str(e)}"
+        )
 
 # Register routers
 app.include_router(health_router)

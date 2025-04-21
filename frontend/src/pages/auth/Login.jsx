@@ -12,12 +12,12 @@ import {
   Text,
   InputGroup,
   InputRightElement,
-  useToast,
   Link,
   FormErrorMessage,
 } from '@chakra-ui/react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useAuth } from '../../context/AuthContext'
+import { toast } from 'react-toastify'
 
 const Login = () => {
   const [email, setEmail] = useState('')
@@ -29,7 +29,6 @@ const Login = () => {
   const { signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const toast = useToast()
   
   const from = location.state?.from?.pathname || '/dashboard'
 
@@ -53,22 +52,10 @@ const Login = () => {
       
       try {
         await signIn({ email, password })
-        toast({
-          title: 'Login successful',
-          description: 'Welcome back!',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        })
+        toast.success('Logged in successfully!')
         navigate(from, { replace: true })
       } catch (error) {
-        toast({
-          title: 'Login failed',
-          description: error.message || 'Please check your credentials and try again',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        })
+        toast.error(error.message || 'Please check your credentials and try again')
         setErrors(prev => ({
           ...prev,
           submit: error.message

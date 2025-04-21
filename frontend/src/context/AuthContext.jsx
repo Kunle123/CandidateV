@@ -12,8 +12,15 @@ export const AuthProvider = ({ children }) => {
     // Check active sessions and sets the user
     const getSession = async () => {
       try {
-        const user = await authHelper.getUser()
-        setUser(user)
+        const { data: { session }, error: sessionError } = await authHelper.auth.getSession()
+        if (sessionError) throw sessionError
+        
+        if (session) {
+          const { user: sessionUser } = session
+          setUser(sessionUser)
+        } else {
+          setUser(null)
+        }
         setError(null)
       } catch (error) {
         console.error('Session error:', error)
@@ -26,9 +33,14 @@ export const AuthProvider = ({ children }) => {
     getSession()
 
     // Listen for auth state changes
-    const { data: { subscription } } = authHelper.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setError(null)
+    const { data: { subscription } } = authHelper.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setUser(session?.user ?? null)
+        setError(null)
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setError(null)
+      }
       setLoading(false)
     })
 
@@ -41,19 +53,26 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        const user = await authHelper.signUp({
+        const { data, error } = await authHelper.signUp({
           email,
           password,
           name,
           terms_accepted: true,
           terms_accepted_at: new Date().toISOString()
         })
-        setUser(user)
-        return user
+        
+        if (error) throw error
+        
+        if (data?.user) {
+          setUser(data.user)
+          return { success: true, data: data.user }
+        } else {
+          throw new Error('No user data returned from signup')
+        }
       } catch (error) {
         console.error('Signup error:', error)
         setError(error.message)
-        throw error
+        return { success: false, error: error.message }
       } finally {
         setLoading(false)
       }
@@ -63,13 +82,20 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        const user = await authHelper.signInWithPassword({ email, password })
-        setUser(user)
-        return user
+        const { data, error } = await authHelper.signInWithPassword({ email, password })
+        
+        if (error) throw error
+        
+        if (data?.user) {
+          setUser(data.user)
+          return { success: true, data: data.user }
+        } else {
+          throw new Error('No user data returned from sign in')
+        }
       } catch (error) {
         console.error('Sign in error:', error)
         setError(error.message)
-        throw error
+        return { success: false, error: error.message }
       } finally {
         setLoading(false)
       }
@@ -81,10 +107,11 @@ export const AuthProvider = ({ children }) => {
         setError(null)
         await authHelper.signOut()
         setUser(null)
+        return { success: true }
       } catch (error) {
         console.error('Sign out error:', error)
         setError(error.message)
-        throw error
+        return { success: false, error: error.message }
       } finally {
         setLoading(false)
       }
@@ -95,10 +122,11 @@ export const AuthProvider = ({ children }) => {
         setLoading(true)
         setError(null)
         await authHelper.resetPassword(email)
+        return { success: true }
       } catch (error) {
         console.error('Password reset error:', error)
         setError(error.message)
-        throw error
+        return { success: false, error: error.message }
       } finally {
         setLoading(false)
       }
@@ -109,10 +137,11 @@ export const AuthProvider = ({ children }) => {
         setLoading(true)
         setError(null)
         await authHelper.updatePassword(newPassword)
+        return { success: true }
       } catch (error) {
         console.error('Password update error:', error)
         setError(error.message)
-        throw error
+        return { success: false, error: error.message }
       } finally {
         setLoading(false)
       }

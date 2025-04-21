@@ -101,6 +101,7 @@ const Header = () => {
                 <NavLink to="/" active={isActivePath('/')}>Home</NavLink>
                 <NavLink to="/dashboard" active={isActivePath('/dashboard')}>Dashboard</NavLink>
                 <NavLink to="/cv" active={isActivePath('/cv')}>CV Builder</NavLink>
+                <NavLink to="/api-test" active={isActivePath('/api-test')}>API Status</NavLink>
               </HStack>
             )}
           </HStack>

@@ -1,18 +1,38 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useNavigate } from 'react-router-dom';
+import { ChakraProvider, useToast } from '@chakra-ui/react';
 import { AuthProvider } from '../../context/AuthContext';
-import Register from '../../pages/Register';
-import Login from '../../pages/Login';
+import Register from '../../pages/auth/Register';
+import Login from '../../pages/auth/Login';
 import { authHelper } from '../../lib/supabase';
+import theme from '../../theme';
+
+// Mock react-router-dom's useNavigate
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: vi.fn(() => vi.fn()),
+  };
+});
+
+// Mock Chakra's useToast
+vi.mock('@chakra-ui/react', async () => {
+  const actual = await vi.importActual('@chakra-ui/react');
+  return {
+    ...actual,
+    useToast: vi.fn(() => vi.fn()),
+  };
+});
 
 // Mock Supabase auth helper
 vi.mock('../../lib/supabase', () => ({
   authHelper: {
     signUp: vi.fn(),
     signInWithPassword: vi.fn(),
-    getUser: vi.fn(),
+    getUser: vi.fn(() => Promise.resolve({ data: null, error: null })),
   },
 }));
 
@@ -25,18 +45,25 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 describe('Authentication Tests', () => {
+  const mockNavigate = vi.fn();
+  const mockToast = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    useNavigate.mockImplementation(() => mockNavigate);
+    useToast.mockImplementation(() => mockToast);
   });
 
   describe('Registration', () => {
     const renderRegister = () => {
       return render(
-        <BrowserRouter>
-          <AuthProvider>
-            <Register />
-          </AuthProvider>
-        </BrowserRouter>
+        <ChakraProvider theme={theme}>
+          <BrowserRouter>
+            <AuthProvider>
+              <Register />
+            </AuthProvider>
+          </BrowserRouter>
+        </ChakraProvider>
       );
     };
 
@@ -105,11 +132,13 @@ describe('Authentication Tests', () => {
   describe('Login', () => {
     const renderLogin = () => {
       return render(
-        <BrowserRouter>
-          <AuthProvider>
-            <Login />
-          </AuthProvider>
-        </BrowserRouter>
+        <ChakraProvider theme={theme}>
+          <BrowserRouter>
+            <AuthProvider>
+              <Login />
+            </AuthProvider>
+          </BrowserRouter>
+        </ChakraProvider>
       );
     };
 

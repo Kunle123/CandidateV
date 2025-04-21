@@ -20,7 +20,7 @@ const SERVICE_URLS = {
 
 // CORS configuration
 const corsOptions = {
-  origin: ['https://candidate-v.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+  origin: ['https://candidate-v.vercel.app', 'https://candidate-v-frontend.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
@@ -38,7 +38,10 @@ app.use(morgan('combined'));
 
 // Add CORS headers to all responses
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://candidate-v.vercel.app');
+  const origin = req.headers.origin;
+  if (corsOptions.origin.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -92,7 +95,10 @@ const createProxy = (serviceName, targetUrl) => {
       
       // For OPTIONS requests, handle directly
       if (req.method === 'OPTIONS') {
-        res.header('Access-Control-Allow-Origin', 'https://candidate-v.vercel.app');
+        const origin = req.headers.origin;
+        if (corsOptions.origin.includes(origin)) {
+          res.header('Access-Control-Allow-Origin', origin);
+        }
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
         res.header('Access-Control-Allow-Credentials', 'true');

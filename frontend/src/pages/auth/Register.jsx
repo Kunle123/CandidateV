@@ -16,38 +16,67 @@ import {
   Link,
   Checkbox,
   FormErrorMessage,
+  IconButton
 } from '@chakra-ui/react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useAuth } from '../../context/AuthContext'
+import { FORM_IDS, VALIDATION_MESSAGES, BUTTON_STATES, FORM_DEFAULTS } from '../../constants/formConstants'
+import { toast } from 'react-toastify'
 
 const Register = () => {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    acceptTerms: false
+  })
   const [errors, setErrors] = useState({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   
   const { signUp } = useAuth()
   const navigate = useNavigate()
-  const toast = useToast()
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }))
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+  }
 
   const validateForm = () => {
     const newErrors = {}
     
-    if (!name) newErrors.name = 'Name is required'
-    if (!email) newErrors.email = 'Email is required'
-    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Email is invalid'
+    if (!formData.name.trim()) {
+      newErrors.name = VALIDATION_MESSAGES.REQUIRED
+    }
     
-    if (!password) newErrors.password = 'Password is required'
-    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters'
+    if (!formData.email) {
+      newErrors.email = VALIDATION_MESSAGES.EMAIL.REQUIRED
+    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
+      newErrors.email = VALIDATION_MESSAGES.EMAIL.INVALID
+    }
     
-    if (!confirmPassword) newErrors.confirmPassword = 'Please confirm your password'
-    else if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match'
+    if (!formData.password) {
+      newErrors.password = VALIDATION_MESSAGES.PASSWORD.REQUIRED
+    } else if (formData.password.length < 6) {
+      newErrors.password = VALIDATION_MESSAGES.PASSWORD.MIN_LENGTH
+    }
     
-    if (!termsAccepted) newErrors.terms = 'You must accept the terms'
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = VALIDATION_MESSAGES.PASSWORD.MISMATCH
+    }
+    
+    if (!formData.acceptTerms) {
+      newErrors.acceptTerms = VALIDATION_MESSAGES.TERMS
+    }
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -56,34 +85,39 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (validateForm()) {
-      setIsSubmitting(true)
+    if (!validateForm()) return
+    
+    if (!formData.acceptTerms) {
+      toast.error('Please accept the terms and conditions')
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const { data, error } = await signUp({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      })
       
-      try {
-        await signUp({ email, password, name })
-        toast({
-          title: 'Registration successful',
-          description: 'Please check your email to verify your account',
-          status: 'success',
-          duration: 5000,
-          isClosable: true,
-        })
-        navigate('/login')
-      } catch (error) {
-        toast({
-          title: 'Registration failed',
-          description: error.message || 'An error occurred during registration',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        })
-        setErrors(prev => ({
-          ...prev,
-          submit: error.message
-        }))
-      } finally {
-        setIsSubmitting(false)
+      if (error) {
+        toast.error(error.message)
+        return
       }
+
+      if (data) {
+        toast.success('Account created successfully! Please check your email to verify your account.')
+        navigate('/login')
+      }
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -106,88 +140,100 @@ const Register = () => {
         onSubmit={handleSubmit}
       >
         <Stack spacing={4}>
-          <FormControl id="name" isInvalid={errors.name}>
-            <FormLabel>Full Name</FormLabel>
-            <Input 
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
+          <FormControl isInvalid={errors.name}>
+            <FormLabel htmlFor={FORM_IDS.AUTH.NAME}>Name</FormLabel>
+            <Input
+              {...FORM_DEFAULTS.INPUT}
+              id={FORM_IDS.AUTH.NAME}
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
             />
             <FormErrorMessage>{errors.name}</FormErrorMessage>
           </FormControl>
 
-          <FormControl id="email" isInvalid={errors.email}>
-            <FormLabel>Email address</FormLabel>
-            <Input 
+          <FormControl isInvalid={errors.email}>
+            <FormLabel htmlFor={FORM_IDS.AUTH.EMAIL}>Email</FormLabel>
+            <Input
+              {...FORM_DEFAULTS.INPUT}
+              id={FORM_IDS.AUTH.EMAIL}
+              name="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              value={formData.email}
+              onChange={handleChange}
             />
             <FormErrorMessage>{errors.email}</FormErrorMessage>
           </FormControl>
           
-          <FormControl id="password" isInvalid={errors.password}>
-            <FormLabel>Password</FormLabel>
+          <FormControl isInvalid={errors.password}>
+            <FormLabel htmlFor={FORM_IDS.AUTH.PASSWORD}>Password</FormLabel>
             <InputGroup>
               <Input
+                {...FORM_DEFAULTS.INPUT}
+                id={FORM_IDS.AUTH.PASSWORD}
+                name="password"
                 type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
+                value={formData.password}
+                onChange={handleChange}
               />
-              <InputRightElement h={'full'}>
-                <Button
-                  variant={'ghost'}
+              <InputRightElement>
+                <IconButton
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
                   onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <ViewIcon /> : <ViewOffIcon />}
-                </Button>
+                  variant="ghost"
+                  size="sm"
+                />
               </InputRightElement>
             </InputGroup>
             <FormErrorMessage>{errors.password}</FormErrorMessage>
           </FormControl>
           
-          <FormControl id="confirmPassword" isInvalid={errors.confirmPassword}>
-            <FormLabel>Confirm Password</FormLabel>
-            <Input
-              type={showPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+          <FormControl isInvalid={errors.confirmPassword}>
+            <FormLabel htmlFor={FORM_IDS.AUTH.CONFIRM_PASSWORD}>Confirm Password</FormLabel>
+            <InputGroup>
+              <Input
+                {...FORM_DEFAULTS.INPUT}
+                id={FORM_IDS.AUTH.CONFIRM_PASSWORD}
+                name="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={formData.confirmPassword}
+                onChange={handleChange}
+              />
+              <InputRightElement>
+                <IconButton
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  icon={showConfirmPassword ? <ViewOffIcon /> : <ViewIcon />}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  variant="ghost"
+                  size="sm"
+                />
+              </InputRightElement>
+            </InputGroup>
             <FormErrorMessage>{errors.confirmPassword}</FormErrorMessage>
           </FormControl>
 
-          <FormControl id="terms" isInvalid={errors.terms}>
+          <FormControl isInvalid={errors.acceptTerms}>
             <Checkbox
-              isChecked={termsAccepted}
-              onChange={(e) => setTermsAccepted(e.target.checked)}
+              {...FORM_DEFAULTS.CHECKBOX}
+              id={FORM_IDS.AUTH.TERMS}
+              name="acceptTerms"
+              isChecked={formData.acceptTerms}
+              onChange={handleChange}
             >
               I accept the terms and conditions
             </Checkbox>
-            <FormErrorMessage>{errors.terms}</FormErrorMessage>
+            <FormErrorMessage>{errors.acceptTerms}</FormErrorMessage>
           </FormControl>
           
           <Button
+            {...FORM_DEFAULTS.BUTTON}
             type="submit"
-            bg={'brand.500'}
-            color={'white'}
-            _hover={{
-              bg: 'brand.600',
-            }}
-            isLoading={isSubmitting}
-            loadingText="Creating account"
+            isLoading={isLoading}
+            loadingText={BUTTON_STATES.AUTH.SIGN_UP.LOADING}
           >
-            Sign up
+            {BUTTON_STATES.AUTH.SIGN_UP.DEFAULT}
           </Button>
-
-          {errors.submit && (
-            <Text color="red.500" fontSize="sm" textAlign="center">
-              {errors.submit}
-            </Text>
-          )}
         </Stack>
       </Box>
 
