@@ -3,10 +3,10 @@ import {
   userService, 
   cvService, 
   exportService, 
-  authService,
   aiService,
   paymentService 
 } from '../api';
+import { authHelper } from '../lib/supabase';
 
 const APITest = () => {
   const [results, setResults] = useState({});
@@ -58,16 +58,28 @@ const APITest = () => {
   const testAIService = () => runTest('aiService', () => aiService.analyzeCV('sample-cv-id')); 
   const testPaymentService = () => runTest('paymentService', paymentService.getPlans);
   
-  const testAuthStatus = () => {
-    const isAuthenticated = authService.isAuthenticated();
-    const user = authService.getCurrentUser();
-    setResults(prev => ({ 
-      ...prev, 
-      authService: {
-        success: true,
-        data: { isAuthenticated, user }
-      }
-    }));
+  const testAuthStatus = async () => {
+    try {
+      const user = await authHelper.getUser();
+      setResults(prev => ({ 
+        ...prev, 
+        authService: {
+          success: true,
+          data: { 
+            isAuthenticated: !!user,
+            user: user ? {
+              name: user.user_metadata?.full_name,
+              email: user.email
+            } : null
+          }
+        }
+      }));
+    } catch (err) {
+      setError(prev => ({ 
+        ...prev, 
+        authService: err.message || 'Unknown error' 
+      }));
+    }
   };
 
   // Run all tests
