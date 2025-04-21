@@ -3,6 +3,7 @@ import os
 from typing import Any, Dict, List, Optional, Union
 from pydantic import AnyHttpUrl, EmailStr, PostgresDsn, validator
 from pydantic_settings import BaseSettings
+from functools import lru_cache
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -119,4 +120,10 @@ class Settings(BaseSettings):
         env_file = ".env"
         extra = "allow"  # Allow extra fields from environment variables
 
-settings = Settings() 
+# Create settings instance
+settings = Settings()
+
+@lru_cache()
+def get_settings() -> Settings:
+    """Get cached settings instance."""
+    return settings 
