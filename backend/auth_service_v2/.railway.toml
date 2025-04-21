@@ -6,7 +6,7 @@ dockerfilePath = "Dockerfile"
 watchPatterns = ["/"]
 
 [deploy]
-startCommand = "sleep 45 && SQLALCHEMY_DATABASE_URI=postgresql://postgres:tlWJRdQivsxtdYTfawGUBGGehAdRKtlm@switchback.proxy.rlwy.net:29421/railway python -m alembic upgrade head && PYTHONUNBUFFERED=1 LOG_LEVEL=debug UVICORN_WORKERS=1 MAX_WORKERS=1 python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level debug --timeout-keep-alive 75 --limit-concurrency 50 --backlog 2048"
+startCommand = "sleep 45 && alembic upgrade head && PYTHONUNBUFFERED=1 LOG_LEVEL=debug UVICORN_WORKERS=1 MAX_WORKERS=1 python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level debug --timeout-keep-alive 75 --limit-concurrency 50 --backlog 2048"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
@@ -14,21 +14,48 @@ healthcheckInterval = 45
 restartPolicyMaxRetries = 5
 
 [deploy.env]
+# API Configuration
+API_V1_STR = "/api/v1"
+PROJECT_NAME = "CandidateV Authentication Service"
+VERSION = "2.0.0"
+
+# Environment
 ENVIRONMENT = "production"
 DEBUG = "true"
-POOL_SIZE = "5"
-MAX_OVERFLOW = "10"
-POOL_TIMEOUT = "60"
-POOL_RECYCLE = "1800"
-SQLALCHEMY_POOL_PRE_PING = "true"
-DATABASE_URL = "postgresql+asyncpg://postgres:tlWJRdQivsxtdYTfawGUBGGehAdRKtlm@switchback.proxy.rlwy.net:29421/railway"
+
+# Database Configuration
+DATABASE_URL = "${{Postgres.DATABASE_URL}}"
+POSTGRES_SERVER = "monorail.proxy.rlwy.net"
+POSTGRES_USER = "postgres"
+POSTGRES_PASSWORD = "tlWJRdQivsxtdYTfawGUBGGehAdRKtlm"
+POSTGRES_DB = "railway"
+
+# Security Settings
 SECRET_KEY = "kvAGeB9PMUsUaNXzWHYm0-qq_K8pOXvSc7SLv6-eaZw"
-BACKEND_CORS_ORIGINS = "*"
+ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+REFRESH_TOKEN_EXPIRE_DAYS = "7"
+ALGORITHM = "HS256"
+RATE_LIMIT_PER_MINUTE = "60"
+
+# CORS Configuration
+BACKEND_CORS_ORIGINS = "https://auth-2-production.up.railway.app"
+
+# Email Configuration
 MAIL_FROM = "noreply@candidatev.com"
-EMAILS_FROM_EMAIL = "noreply@candidatev.com"
 MAIL_FROM_NAME = "CandidateV"
+EMAILS_FROM_EMAIL = "noreply@candidatev.com"
+EMAILS_FROM_NAME = "CandidateV"
+MAIL_USERNAME = "test@example.com"
+MAIL_PASSWORD = "testpassword"
 MAIL_PORT = "587"
 MAIL_SERVER = "smtp.gmail.com"
 MAIL_TLS = "true"
 MAIL_SSL = "false"
-USE_CREDENTIALS = "true" 
+USE_CREDENTIALS = "true"
+
+# Connection Pool Settings
+POOL_SIZE = "5"
+MAX_OVERFLOW = "10"
+POOL_TIMEOUT = "60"
+POOL_RECYCLE = "1800"
+POOL_PRE_PING = "true" 
