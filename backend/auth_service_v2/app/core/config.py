@@ -92,12 +92,20 @@ class Settings(BaseSettings):
     MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
     MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
     MAIL_FROM: str = os.getenv("MAIL_FROM", "noreply@candidatev.com")
+    EMAILS_FROM_EMAIL: EmailStr = os.getenv("EMAILS_FROM_EMAIL", "noreply@candidatev.com")
     MAIL_PORT: int = int(os.getenv("MAIL_PORT", "587"))
     MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "CandidateV")
     MAIL_TLS: bool = os.getenv("MAIL_TLS", "true").lower() == "true"
     MAIL_SSL: bool = os.getenv("MAIL_SSL", "false").lower() == "true"
     USE_CREDENTIALS: bool = os.getenv("USE_CREDENTIALS", "true").lower() == "true"
+
+    @validator("EMAILS_FROM_EMAIL", pre=True)
+    def use_mail_from_if_no_emails_from(cls, v: str, values: Dict[str, Any]) -> str:
+        """Use MAIL_FROM if EMAILS_FROM_EMAIL is not set."""
+        if not v and values.get("MAIL_FROM"):
+            return values["MAIL_FROM"]
+        return v
 
     # For backward compatibility
     SMTP_USER: str = os.getenv("SMTP_USER", "")
