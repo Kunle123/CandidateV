@@ -11,7 +11,8 @@ from app.services.user import (
     create_user,
     get_user_by_email,
     update_user,
-    verify_user_email
+    verify_user_email,
+    create_email_verification_token
 )
 from app.services.auth import send_verification_email
 
@@ -34,8 +35,18 @@ async def register(
             detail="A user with this email already exists"
         )
     user = await create_user(db, user_in)
+    
+    # Create verification token
+    token = await create_email_verification_token(db, user)
+    
+    # Send verification email in background
     background_tasks.add_task(send_verification_email, db, user.email)
-    return user
+    
+    # Return user with verification token
+    return {
+        **user.dict(),
+        "verification_token": token.token
+    }
 
 @router.post("/verify-email")
 async def verify_email(
