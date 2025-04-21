@@ -22,38 +22,38 @@ VERSION = "2.0.0"
 
 # Environment
 ENVIRONMENT = "production"
-DEBUG = "true"
+DEBUG = "false"
 
 # Database Configuration
-DATABASE_URL = "${{Postgres.DATABASE_URL}}"  # Using Railway's internal URL injection
-USE_SYNC_DRIVER = "true"  # Force sync driver for migrations
-
-# Security Settings
-SECRET_KEY = "kvAGeB9PMUsUaNXzWHYm0-qq_K8pOXvSc7SLv6-eaZw"
-ACCESS_TOKEN_EXPIRE_MINUTES = "30"
-REFRESH_TOKEN_EXPIRE_DAYS = "7"
-ALGORITHM = "HS256"
-RATE_LIMIT_PER_MINUTE = "60"
-
-# CORS Configuration
-BACKEND_CORS_ORIGINS = "https://auth-2-production.up.railway.app"
-
-# Email Configuration
-MAIL_FROM = "noreply@candidatev.com"
-MAIL_FROM_NAME = "CandidateV"
-EMAILS_FROM_EMAIL = "noreply@candidatev.com"
-EMAILS_FROM_NAME = "CandidateV"
-MAIL_USERNAME = "test@example.com"
-MAIL_PASSWORD = "testpassword"
-MAIL_PORT = "587"
-MAIL_SERVER = "smtp.gmail.com"
-MAIL_TLS = "true"
-MAIL_SSL = "false"
-USE_CREDENTIALS = "true"
+DATABASE_URL = "${{Postgres.DATABASE_URL}}"
+USE_SYNC_DRIVER = "true"
 
 # Connection Pool Settings
 POOL_SIZE = "5"
 MAX_OVERFLOW = "10"
 POOL_TIMEOUT = "60"
 POOL_RECYCLE = "1800"
-POOL_PRE_PING = "true" 
+POOL_PRE_PING = "true"
+
+# Security Settings
+SECRET_KEY = "${{Auth_v2.SECRET_KEY}}"
+ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+REFRESH_TOKEN_EXPIRE_DAYS = "7"
+ALGORITHM = "HS256"
+RATE_LIMIT_PER_MINUTE = "60"
+
+# CORS Configuration
+BACKEND_CORS_ORIGINS = "${{Auth_v2.RAILWAY_PUBLIC_DOMAIN}}"
+
+# Email Configuration
+MAIL_FROM = "noreply@candidatev.com"
+MAIL_FROM_NAME = "CandidateV"
+EMAILS_FROM_EMAIL = "noreply@candidatev.com"
+EMAILS_FROM_NAME = "CandidateV"
+MAIL_USERNAME = "${{Auth_v2.MAIL_USERNAME}}"
+MAIL_PASSWORD = "${{Auth_v2.MAIL_PASSWORD}}"
+MAIL_PORT = "587"
+MAIL_SERVER = "smtp.gmail.com"
+MAIL_TLS = "true"
+MAIL_SSL = "false"
+USE_CREDENTIALS = "true" 
