@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/*.js": {
+    "pages/api/*.js": {
       "runtime": "@vercel/node@3.0.0",
       "nodeVersion": "18.x"
     }
@@ -17,7 +17,7 @@
     "VITE_ENABLE_ANALYTICS": "true"
   },
   "rewrites": [
-    { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/api/health", "destination": "/pages/api/health" },
     { "source": "/api/auth/:path*", "destination": "https://candidatev-auth-service.up.railway.app/api/auth/:path*" },
     { "source": "/api/users/:path*", "destination": "https://candidatev-user-service.up.railway.app/api/users/:path*" },
     { "source": "/api/cv/:path*", "destination": "https://candidatev-cv-service.up.railway.app/api/cv/:path*" },
