@@ -10,12 +10,11 @@ import {
   Button,
   Heading,
   Text,
-  useColorModeValue,
-  FormErrorMessage,
   InputGroup,
   InputRightElement,
   useToast,
   Link,
+  FormErrorMessage,
 } from '@chakra-ui/react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useAuth } from '../../context/AuthContext'
@@ -27,7 +26,7 @@ const Login = () => {
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  const { login, error: authError } = useAuth()
+  const { signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
@@ -41,7 +40,6 @@ const Login = () => {
     else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Email is invalid'
     
     if (!password) newErrors.password = 'Password is required'
-    else if (password.length < 8) newErrors.password = 'Password must be at least 8 characters'
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -53,27 +51,31 @@ const Login = () => {
     if (validateForm()) {
       setIsSubmitting(true)
       
-      const success = await login(email, password)
-      
-      if (success) {
+      try {
+        await signIn({ email, password })
         toast({
           title: 'Login successful',
+          description: 'Welcome back!',
           status: 'success',
           duration: 3000,
           isClosable: true,
         })
         navigate(from, { replace: true })
-      } else {
+      } catch (error) {
         toast({
           title: 'Login failed',
-          description: authError || 'Please check your credentials and try again',
+          description: error.message || 'Please check your credentials and try again',
           status: 'error',
           duration: 5000,
           isClosable: true,
         })
+        setErrors(prev => ({
+          ...prev,
+          submit: error.message
+        }))
+      } finally {
+        setIsSubmitting(false)
       }
-      
-      setIsSubmitting(false)
     }
   }
 
@@ -102,6 +104,7 @@ const Login = () => {
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
             />
             <FormErrorMessage>{errors.email}</FormErrorMessage>
           </FormControl>
@@ -113,6 +116,7 @@ const Login = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
               />
               <InputRightElement h={'full'}>
                 <Button
@@ -132,7 +136,13 @@ const Login = () => {
               align={'start'}
               justify={'space-between'}
             >
-              <Link color={'brand.500'}>Forgot password?</Link>
+              <Link 
+                as={RouterLink} 
+                to="/reset-password" 
+                color={'brand.500'}
+              >
+                Forgot password?
+              </Link>
             </Stack>
             
             <Button
@@ -147,6 +157,12 @@ const Login = () => {
             >
               Sign in
             </Button>
+
+            {errors.submit && (
+              <Text color="red.500" fontSize="sm" textAlign="center">
+                {errors.submit}
+              </Text>
+            )}
           </Stack>
         </Stack>
       </Box>

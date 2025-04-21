@@ -10,13 +10,12 @@ import {
   Button,
   Heading,
   Text,
-  useColorModeValue,
-  FormErrorMessage,
   InputGroup,
   InputRightElement,
   useToast,
   Link,
   Checkbox,
+  FormErrorMessage,
 } from '@chakra-ui/react'
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { useAuth } from '../../context/AuthContext'
@@ -31,7 +30,7 @@ const Register = () => {
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  const { register, error: authError } = useAuth()
+  const { signUp } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -39,17 +38,16 @@ const Register = () => {
     const newErrors = {}
     
     if (!name) newErrors.name = 'Name is required'
-    
     if (!email) newErrors.email = 'Email is required'
     else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Email is invalid'
     
     if (!password) newErrors.password = 'Password is required'
-    else if (password.length < 8) newErrors.password = 'Password must be at least 8 characters'
+    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters'
     
     if (!confirmPassword) newErrors.confirmPassword = 'Please confirm your password'
     else if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match'
     
-    if (!termsAccepted) newErrors.terms = 'You must accept the terms and conditions'
+    if (!termsAccepted) newErrors.terms = 'You must accept the terms'
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -61,9 +59,8 @@ const Register = () => {
     if (validateForm()) {
       setIsSubmitting(true)
       
-      const success = await register(name, email, password)
-      
-      if (success) {
+      try {
+        await signUp({ email, password, name })
         toast({
           title: 'Registration successful',
           description: 'Please check your email to verify your account',
@@ -72,17 +69,21 @@ const Register = () => {
           isClosable: true,
         })
         navigate('/login')
-      } else {
+      } catch (error) {
         toast({
           title: 'Registration failed',
-          description: authError || 'An error occurred during registration',
+          description: error.message || 'An error occurred during registration',
           status: 'error',
           duration: 5000,
           isClosable: true,
         })
+        setErrors(prev => ({
+          ...prev,
+          submit: error.message
+        }))
+      } finally {
+        setIsSubmitting(false)
       }
-      
-      setIsSubmitting(false)
     }
   }
 
@@ -93,7 +94,7 @@ const Register = () => {
     >
       <Box mb={8} textAlign="center">
         <Heading fontSize="2xl" fontWeight="bold">
-          Create a new account
+          Create your account
         </Heading>
         <Text mt={2} color="gray.600">
           to start building your professional CV
@@ -108,19 +109,21 @@ const Register = () => {
           <FormControl id="name" isInvalid={errors.name}>
             <FormLabel>Full Name</FormLabel>
             <Input 
-              type="text" 
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
             />
             <FormErrorMessage>{errors.name}</FormErrorMessage>
           </FormControl>
-          
+
           <FormControl id="email" isInvalid={errors.email}>
             <FormLabel>Email address</FormLabel>
             <Input 
-              type="email" 
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
             />
             <FormErrorMessage>{errors.email}</FormErrorMessage>
           </FormControl>
@@ -132,6 +135,7 @@ const Register = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
               />
               <InputRightElement h={'full'}>
                 <Button
@@ -151,33 +155,39 @@ const Register = () => {
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
             />
             <FormErrorMessage>{errors.confirmPassword}</FormErrorMessage>
           </FormControl>
-          
+
           <FormControl id="terms" isInvalid={errors.terms}>
             <Checkbox
               isChecked={termsAccepted}
               onChange={(e) => setTermsAccepted(e.target.checked)}
             >
-              I accept the <Link color="brand.500">Terms of Service</Link> and <Link color="brand.500">Privacy Policy</Link>
+              I accept the terms and conditions
             </Checkbox>
             <FormErrorMessage>{errors.terms}</FormErrorMessage>
           </FormControl>
           
           <Button
+            type="submit"
             bg={'brand.500'}
             color={'white'}
             _hover={{
               bg: 'brand.600',
             }}
-            type="submit"
             isLoading={isSubmitting}
-            loadingText="Creating Account"
-            mt={6}
+            loadingText="Creating account"
           >
-            Create Account
+            Sign up
           </Button>
+
+          {errors.submit && (
+            <Text color="red.500" fontSize="sm" textAlign="center">
+              {errors.submit}
+            </Text>
+          )}
         </Stack>
       </Box>
 
