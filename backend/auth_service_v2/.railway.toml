@@ -1,7 +1,8 @@
 [build]
 # Trigger rebuild - Database connection configured
-builder = "nixpacks"
+builder = "DOCKERFILE"
 buildDirectory = "backend/auth_service_v2"
+dockerfilePath = "Dockerfile"
 watchPatterns = ["/"]
 
 [deploy]

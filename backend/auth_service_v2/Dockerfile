@@ -24,4 +24,4 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
 # Command to run the application
-CMD ["sh", "-c", "sleep 45 && python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --log-level debug --timeout-keep-alive 75 --limit-concurrency 50 --backlog 2048"] 
+CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"] 
