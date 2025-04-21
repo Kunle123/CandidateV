@@ -1,4 +1,5 @@
 [build]
+# Trigger rebuild - Database connection configured
 builder = "nixpacks"
 buildDirectory = "."
 watchPatterns = ["/"]
