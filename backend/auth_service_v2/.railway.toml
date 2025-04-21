@@ -1,13 +1,13 @@
 [build]
 # Trigger rebuild - Database connection configured
 builder = "nixpacks"
-buildCommand = "pip install -e ."
+buildCommand = "pip install -e . && pip install -r requirements.txt"
 buildDirectory = "backend/auth_service_v2"
 dockerfilePath = "Dockerfile"
 watchPatterns = ["/"]
 
 [deploy]
-startCommand = "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level info"
+startCommand = "PYTHONPATH=/app alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level info"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
