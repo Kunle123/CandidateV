@@ -42,7 +42,8 @@ app.add_middleware(
 # Rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
 
-app.include_router(api_router, prefix=settings.API_V1_STR)
+# Mount v1 API router at /api instead of /api/v1
+app.include_router(api_router, prefix="/api")
 
 async def initialize_database():
     """Initialize database with retries."""
