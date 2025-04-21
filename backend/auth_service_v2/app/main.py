@@ -94,4 +94,27 @@ async def root():
         "name": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT
-    } 
+    }
+
+@app.get("/api/v1/health")
+async def health_check():
+    """Health check endpoint."""
+    try:
+        # Check database connection
+        if not await verify_database_connection():
+            return JSONResponse(
+                status_code=503,
+                content={"status": "error", "message": "Database connection failed"}
+            )
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "environment": settings.ENVIRONMENT
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "message": str(e)}
+        ) 
