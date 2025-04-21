@@ -1,6 +1,5 @@
 import apiClient from './apiClient';
 import { apiService } from './apiClient';
-import authService from './authService';
 import userService from './userService';
 import cvService from './cvService';
 import exportService from './exportService';
@@ -12,7 +11,6 @@ import * as utils from './utils';
 export {
   apiClient,
   apiService,
-  authService,
   userService,
   cvService,
   exportService,
@@ -25,7 +23,6 @@ export {
 export default {
   apiClient,
   apiService,
-  auth: authService,
   user: userService,
   cv: cvService,
   export: exportService,
