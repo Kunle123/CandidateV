@@ -1,6 +1,7 @@
 """User models for authentication."""
 from typing import Optional, List
 from datetime import datetime
+from uuid import UUID
 from pydantic import BaseModel, EmailStr, constr
 
 class UserBase(BaseModel):
@@ -23,7 +24,7 @@ class UserUpdate(UserBase):
 
 class UserInDBBase(UserBase):
     """Base user in DB schema."""
-    id: Optional[int] = None
+    id: Optional[UUID] = None
     hashed_password: str
     roles: List[str] = []
 
@@ -33,7 +34,7 @@ class UserInDBBase(UserBase):
 
 class User(UserBase):
     """User model with all fields."""
-    id: str
+    id: UUID
     email_verified: bool = False
     failed_login_attempts: int = 0
     last_login: Optional[datetime] = None

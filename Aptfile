@@ -1,0 +1,7 @@
+# System dependencies for buildpack deployment
+# These match nixpacks.toml setup requirements (as of Apr 21, 2024)
+# DO NOT modify without updating nixpacks.toml phases.setup.nixPkgs
+postgresql-client
+postgresql-server-dev-all
+gcc
+python3-dev 

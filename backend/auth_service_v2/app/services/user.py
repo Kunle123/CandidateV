@@ -5,11 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import and_
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST
-from datetime import datetime
+from datetime import datetime, timedelta
+import secrets
 
 from app.db.models import User, EmailVerificationToken
 from app.core.password import get_password_hash, verify_password
 from app.models.user import UserCreate, UserUpdate
+from app.core.config import settings
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
     """Get a user by ID."""
@@ -153,3 +155,27 @@ async def verify_user_email(db: AsyncSession, token: str) -> bool:
     await db.delete(verification)
     await db.commit()
     return True 
+
+async def create_email_verification_token(db: AsyncSession, user: User) -> EmailVerificationToken:
+    """Create a new email verification token."""
+    # Delete any existing tokens for this user
+    await db.execute(
+        delete(EmailVerificationToken).where(EmailVerificationToken.email == user.email)
+    )
+    await db.commit()
+    
+    # Create new token
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS)
+    
+    verification_token = EmailVerificationToken(
+        email=user.email,
+        token=token,
+        expires_at=expires_at
+    )
+    
+    db.add(verification_token)
+    await db.commit()
+    await db.refresh(verification_token)
+    
+    return verification_token 

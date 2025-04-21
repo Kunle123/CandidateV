@@ -11,13 +11,15 @@ from app.services.user import (
     create_user,
     get_user_by_email,
     update_user,
-    verify_user_email
+    verify_user_email,
+    create_email_verification_token
 )
 from app.services.auth import send_verification_email
+from app.core.config import get_settings
 
 router = APIRouter()
 
-@router.post("/register", response_model=User)
+@router.post("/register", response_model=User, status_code=201)
 async def register(
     *,
     db: AsyncSession = Depends(get_db),
@@ -27,14 +29,36 @@ async def register(
     """
     Create new user with email verification.
     """
+    # Check if user exists
     user = await get_user_by_email(db, email=user_in.email)
     if user:
+        if not user.is_active and not user.is_email_verified:
+            # If user exists but isn't verified, create new verification token
+            token = await create_email_verification_token(db, user)
+            # Send new verification email
+            await send_verification_email(db, user.email, token.token, user.name)
+            return user
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail="A user with this email already exists"
         )
+
+    # Create new user
     user = await create_user(db, user_in)
-    background_tasks.add_task(send_verification_email, db, user.email)
+    
+    # Create verification token
+    token = await create_email_verification_token(db, user)
+    
+    # Send verification email immediately instead of background task
+    # This ensures the email is sent before we return
+    try:
+        await send_verification_email(db, user.email, token.token, user.name)
+    except Exception as e:
+        # Log the error but don't fail the registration
+        print(f"Failed to send verification email: {str(e)}")
+        # Return user without verification token
+        return user
+    
     return user
 
 @router.post("/verify-email")
@@ -45,12 +69,18 @@ async def verify_email(
     """
     Verify user's email using verification token.
     """
-    if not await verify_user_email(db, token):
+    try:
+        if not await verify_user_email(db, token):
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification token"
+            )
+        return {"message": "Email verified successfully"}
+    except Exception as e:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token"
+            detail=f"Email verification failed: {str(e)}"
         )
-    return {"message": "Email verified successfully"}
 
 @router.get("/me", response_model=User)
 async def read_user_me(

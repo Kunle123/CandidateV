@@ -1,0 +1,5 @@
+# These buildpacks are maintained as a fallback deployment option.
+# Primary deployment uses nixpacks.toml (as of Apr 21, 2024).
+# DO NOT modify without updating nixpacks.toml to match.
+https://github.com/heroku/heroku-buildpack-python.git
+https://github.com/heroku/heroku-buildpack-apt.git 
