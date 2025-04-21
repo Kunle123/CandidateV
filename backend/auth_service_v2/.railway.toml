@@ -1,18 +1,18 @@
 [build]
 # Trigger rebuild - Database connection configured
-builder = "DOCKERFILE"
+builder = "nixpacks"
+buildCommand = "pip install -e ."
 buildDirectory = "backend/auth_service_v2"
 dockerfilePath = "Dockerfile"
 watchPatterns = ["/"]
 
 [deploy]
-startCommand = "sleep 45 && alembic upgrade head && PYTHONUNBUFFERED=1 LOG_LEVEL=debug UVICORN_WORKERS=1 MAX_WORKERS=1 python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level debug --timeout-keep-alive 75 --limit-concurrency 50 --backlog 2048"
-# Temporarily removing health check configuration
-# healthcheckPath = "/api/v1/health"
-# healthcheckTimeout = 300
-# restartPolicyType = "on_failure"
-# healthcheckInterval = 45
-# restartPolicyMaxRetries = 5
+startCommand = "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level info"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+healthcheckInterval = 45
+restartPolicyMaxRetries = 5
 
 [deploy.env]
 # API Configuration
@@ -25,11 +25,8 @@ ENVIRONMENT = "production"
 DEBUG = "true"
 
 # Database Configuration
-DATABASE_URL = "${{Postgres.DATABASE_URL}}"
-POSTGRES_SERVER = "monorail.proxy.rlwy.net"
-POSTGRES_USER = "postgres"
-POSTGRES_PASSWORD = "tlWJRdQivsxtdYTfawGUBGGehAdRKtlm"
-POSTGRES_DB = "railway"
+DATABASE_URL = "${{Postgres.DATABASE_URL}}"  # Using Railway's internal URL injection
+USE_SYNC_DRIVER = "true"  # Force sync driver for migrations
 
 # Security Settings
 SECRET_KEY = "kvAGeB9PMUsUaNXzWHYm0-qq_K8pOXvSc7SLv6-eaZw"
