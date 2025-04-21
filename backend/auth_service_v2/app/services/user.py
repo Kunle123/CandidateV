@@ -53,7 +53,8 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
         email=user_in.email,
         hashed_password=get_password_hash(user_in.password),
         name=user_in.name,
-        is_active=True,
+        is_active=False,  # Users start as inactive until email verification
+        email_verified=False,
         is_superuser=user_in.is_superuser,
         roles=user_in.roles
     )
@@ -147,6 +148,7 @@ async def verify_user_email(db: AsyncSession, token: str) -> bool:
         return False
         
     user.email_verified = True
+    user.is_active = True  # Activate user when email is verified
     db.add(user)
     await db.delete(verification)
     await db.commit()
