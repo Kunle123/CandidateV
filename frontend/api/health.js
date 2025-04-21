@@ -1,11 +1,5 @@
 // @ts-check
-import fetch from 'node-fetch';
-
-/**
- * @param {import('http').IncomingMessage} req
- * @param {import('http').ServerResponse} res
- */
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   try {
     // Check Supabase connectivity
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -43,10 +37,7 @@ export default async function handler(req, res) {
       })
     );
 
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.statusCode = 200;
-    res.end(JSON.stringify({
+    res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: process.env.VITE_APP_VERSION || '1.0.0',
@@ -55,15 +46,12 @@ export default async function handler(req, res) {
           ? result.value 
           : { service: 'unknown', status: 'error', error: result.reason }
       )
-    }));
+    });
   } catch (error) {
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.statusCode = 503;
-    res.end(JSON.stringify({
+    res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       error: error.message
-    }));
+    });
   }
 } 

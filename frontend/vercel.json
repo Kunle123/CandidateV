@@ -1,12 +1,13 @@
 {
   "version": 2,
-  "framework": "vite",
   "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
   "outputDirectory": "dist",
   "functions": {
     "api/*.js": {
-      "runtime": "@vercel/node@3.0.0",
-      "nodeVersion": "18.x"
+      "runtime": "@vercel/node@3.0.0"
     }
   },
   "env": {
@@ -16,67 +17,25 @@
     "VITE_ENABLE_AUTH": "true",
     "VITE_ENABLE_ANALYTICS": "true"
   },
-  "routes": [
-    {
-      "src": "/api/health",
-      "dest": "/api/health.js"
-    },
-    {
-      "src": "/api/auth/(.*)",
-      "dest": "https://candidatev-auth-service.up.railway.app/api/auth/$1"
-    },
-    {
-      "src": "/api/users/(.*)",
-      "dest": "https://candidatev-user-service.up.railway.app/api/users/$1"
-    },
-    {
-      "src": "/api/cv/(.*)",
-      "dest": "https://candidatev-cv-service.up.railway.app/api/cv/$1"
-    },
-    {
-      "src": "/api/export/(.*)",
-      "dest": "https://candidatev-export-service.up.railway.app/api/export/$1"
-    },
-    {
-      "src": "/api/ai/(.*)",
-      "dest": "https://ai-service-production.up.railway.app/api/ai/$1"
-    },
-    {
-      "src": "/api/payments/(.*)",
-      "dest": "https://candidatev-payment-service.up.railway.app/api/payments/$1"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/health.js" },
+    { "source": "/api/auth/(.*)", "destination": "https://candidatev-auth-service.up.railway.app/api/auth/$1" },
+    { "source": "/api/users/(.*)", "destination": "https://candidatev-user-service.up.railway.app/api/users/$1" },
+    { "source": "/api/cv/(.*)", "destination": "https://candidatev-cv-service.up.railway.app/api/cv/$1" },
+    { "source": "/api/export/(.*)", "destination": "https://candidatev-export-service.up.railway.app/api/export/$1" },
+    { "source": "/api/ai/(.*)", "destination": "https://ai-service-production.up.railway.app/api/ai/$1" },
+    { "source": "/api/payments/(.*)", "destination": "https://candidatev-payment-service.up.railway.app/api/payments/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
       ]
     },
     {
