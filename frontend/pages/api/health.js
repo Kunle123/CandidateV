@@ -1,8 +1,11 @@
-export const config = {
-  runtime: 'edge'
-};
+// @ts-check
+import fetch from 'node-fetch';
 
-export default async function handler(request) {
+/**
+ * @param {import('http').IncomingMessage} req
+ * @param {import('http').ServerResponse} res
+ */
+export default async function handler(req, res) {
   try {
     // Check Supabase connectivity
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -40,35 +43,27 @@ export default async function handler(request) {
       })
     );
 
-    return new Response(
-      JSON.stringify({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        version: process.env.VITE_APP_VERSION || '1.0.0',
-        services: serviceChecks.map(result => result.value)
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        }
-      }
-    );
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.statusCode = 200;
+    res.end(JSON.stringify({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: process.env.VITE_APP_VERSION || '1.0.0',
+      services: serviceChecks.map(result => 
+        result.status === 'fulfilled' 
+          ? result.value 
+          : { service: 'unknown', status: 'error', error: result.reason }
+      )
+    }));
   } catch (error) {
-    return new Response(
-      JSON.stringify({
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        error: error.message
-      }),
-      {
-        status: 503,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        }
-      }
-    );
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.statusCode = 503;
+    res.end(JSON.stringify({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    }));
   }
 } 
