@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
+    build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -20,8 +21,11 @@ COPY . .
 RUN pip install -e .
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+ENV PYTHONPATH=/app
+ENV PORT=8000
 
-# Command to run the application
-CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"] 
+# Expose the port
+EXPOSE 8000
+
+# Start the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
