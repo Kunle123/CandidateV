@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         return v
 
     # Database Configuration
-    POSTGRES_SCHEME: str = os.getenv("POSTGRES_SCHEME", "postgresql")
+    POSTGRES_SCHEME: str = os.getenv("POSTGRES_SCHEME", "postgresql+asyncpg")
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
@@ -46,21 +46,22 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
     
     # The complete Database URL (optional, will be constructed if not provided)
-    DATABASE_URL: Optional[PostgresDsn] = None
+    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
     
     # SQLAlchemy Database URI (will be set by validator)
-    SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
+    SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         """Assemble database connection string."""
         if isinstance(v, str):
-            return v
+            return v.replace("postgresql://", "postgresql+asyncpg://")
         
         # First check if complete DATABASE_URL is provided
         db_url = values.get("DATABASE_URL")
         if db_url:
-            return db_url
+            # Convert to async URL if needed
+            return db_url.replace("postgresql://", "postgresql+asyncpg://")
             
         # Otherwise construct from components
         return PostgresDsn.build(
