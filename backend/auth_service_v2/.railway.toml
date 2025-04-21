@@ -21,11 +21,11 @@ USE_SYNC_DRIVER = "true"
 
 # Database configuration
 DATABASE_URL = "${DATABASE_URL}"
-POSTGRES_SERVER = "postgres.railway.internal"
+POSTGRES_SERVER = "monorail.proxy.rlwy.net"
 POSTGRES_USER = "${POSTGRES_USER}"
 POSTGRES_PASSWORD = "${POSTGRES_PASSWORD}"
 POSTGRES_DB = "${POSTGRES_DB}"
-POSTGRES_PORT = "5432"
+POSTGRES_PORT = "29421"
 
 # API configuration
 API_V1_STR = "/api/v1"
