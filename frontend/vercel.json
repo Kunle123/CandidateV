@@ -3,6 +3,11 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/*.js": {
+      "runtime": "@vercel/node@3.0.0"
+    }
+  },
   "env": {
     "VITE_SUPABASE_URL": "https://aqmybjkzxfwiizorveco.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbXliamt6eGZ3aWl6b3J2ZWNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUyNDU1NTYsImV4cCI6MjA2MDgyMTU1Nn0.Ais3ZEu95OyqitcscyfmztxogCqcqrHjo9BZWPrqQKw",
@@ -10,39 +15,15 @@
     "VITE_ENABLE_AUTH": "true",
     "VITE_ENABLE_ANALYTICS": "true"
   },
-  "routes": [
-    {
-      "src": "/api/health",
-      "dest": "/api/health"
-    },
-    {
-      "src": "/api/auth/(.*)",
-      "dest": "https://candidatev-auth-service.up.railway.app/api/auth/$1"
-    },
-    {
-      "src": "/api/users/(.*)",
-      "dest": "https://candidatev-user-service.up.railway.app/api/users/$1"
-    },
-    {
-      "src": "/api/cv/(.*)",
-      "dest": "https://candidatev-cv-service.up.railway.app/api/cv/$1"
-    },
-    {
-      "src": "/api/export/(.*)",
-      "dest": "https://candidatev-export-service.up.railway.app/api/export/$1"
-    },
-    {
-      "src": "/api/ai/(.*)",
-      "dest": "https://ai-service-production.up.railway.app/api/ai/$1"
-    },
-    {
-      "src": "/api/payments/(.*)",
-      "dest": "https://candidatev-payment-service.up.railway.app/api/payments/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/api/auth/:path*", "destination": "https://candidatev-auth-service.up.railway.app/api/auth/:path*" },
+    { "source": "/api/users/:path*", "destination": "https://candidatev-user-service.up.railway.app/api/users/:path*" },
+    { "source": "/api/cv/:path*", "destination": "https://candidatev-cv-service.up.railway.app/api/cv/:path*" },
+    { "source": "/api/export/:path*", "destination": "https://candidatev-export-service.up.railway.app/api/export/:path*" },
+    { "source": "/api/ai/:path*", "destination": "https://ai-service-production.up.railway.app/api/ai/:path*" },
+    { "source": "/api/payments/:path*", "destination": "https://candidatev-payment-service.up.railway.app/api/payments/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {

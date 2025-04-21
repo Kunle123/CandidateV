@@ -1,8 +1,10 @@
-export const config = {
-  runtime: 'edge'
-};
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async function handler(request) {
+/**
+ * @param {VercelRequest} req
+ * @param {VercelResponse} res
+ */
+export default async function handler(req, res) {
   try {
     // Check Supabase connectivity
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -40,35 +42,17 @@ export default async function handler(request) {
       })
     );
 
-    return new Response(
-      JSON.stringify({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        version: process.env.VITE_APP_VERSION || '1.0.0',
-        services: serviceChecks.map(result => result.value)
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        }
-      }
-    );
+    return res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: process.env.VITE_APP_VERSION || '1.0.0',
+      services: serviceChecks.map(result => result.value)
+    });
   } catch (error) {
-    return new Response(
-      JSON.stringify({
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        error: error.message
-      }),
-      {
-        status: 503,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        }
-      }
-    );
+    return res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
   }
 } 
