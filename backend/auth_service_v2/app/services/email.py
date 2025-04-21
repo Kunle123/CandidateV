@@ -1,6 +1,7 @@
 """Email service for sending various types of emails."""
 from typing import Any, Dict, Optional
 from pathlib import Path
+import aiofiles
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 from app.core.config import settings
@@ -20,6 +21,22 @@ conf = ConnectionConfig(
 
 fastmail = FastMail(conf)
 
+async def read_template(template_name: str) -> str:
+    """Read an email template file asynchronously."""
+    template_path = Path(__file__).parent.parent / "templates" / template_name
+    try:
+        async with aiofiles.open(template_path) as f:
+            return await f.read()
+    except FileNotFoundError:
+        # Fallback to a basic HTML template if file not found
+        return """
+        <html>
+            <body>
+                <p>{message}</p>
+            </body>
+        </html>
+        """
+
 async def send_email(
     email_to: str,
     subject_template: str = "",
@@ -27,22 +44,25 @@ async def send_email(
     environment: Dict[str, Any] = {},
 ) -> None:
     """Send an email."""
-    message = MessageSchema(
-        subject=subject_template,
-        recipients=[email_to],
-        body=html_template,
-        subtype="html"
-    )
-    
-    await fastmail.send_message(message)
+    try:
+        message = MessageSchema(
+            subject=subject_template,
+            recipients=[email_to],
+            body=html_template,
+            subtype="html"
+        )
+        
+        await fastmail.send_message(message)
+    except Exception as e:
+        print(f"Failed to send email to {email_to}: {str(e)}")
+        raise
 
 async def send_test_email(email_to: EmailStr) -> None:
     """Send a test email."""
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Test email"
     
-    with open(Path(__file__).parent.parent / "templates" / "test_email.html") as f:
-        template_str = f.read()
+    template_str = await read_template("test_email.html")
     
     await send_email(
         email_to=email_to,
@@ -57,14 +77,13 @@ async def send_test_email(email_to: EmailStr) -> None:
 async def send_reset_password_email(
     email_to: EmailStr,
     token: str,
-    username: str
+    username: Optional[str] = None
 ) -> None:
     """Send a password reset email."""
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Password recovery"
     
-    with open(Path(__file__).parent.parent / "templates" / "password_reset.html") as f:
-        template_str = f.read()
+    template_str = await read_template("password_reset.html")
     
     # Use API base URL for the reset link
     link = f"{settings.API_V1_STR}/auth/password-reset/reset?token={token}"
@@ -75,7 +94,7 @@ async def send_reset_password_email(
         html_template=template_str,
         environment={
             "project_name": settings.PROJECT_NAME,
-            "username": username,
+            "username": username or email_to,
             "email": email_to,
             "valid_hours": settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS,
             "link": link
@@ -85,14 +104,13 @@ async def send_reset_password_email(
 async def send_verification_email(
     email_to: EmailStr,
     token: str,
-    username: str
+    username: Optional[str] = None
 ) -> None:
     """Send an email verification email."""
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Verify your email"
     
-    with open(Path(__file__).parent.parent / "templates" / "email_verification.html") as f:
-        template_str = f.read()
+    template_str = await read_template("email_verification.html")
     
     # Use API base URL for the verification link
     link = f"{settings.API_V1_STR}/users/verify-email?token={token}"
@@ -103,7 +121,7 @@ async def send_verification_email(
         html_template=template_str,
         environment={
             "project_name": settings.PROJECT_NAME,
-            "username": username,
+            "username": username or email_to,
             "email": email_to,
             "link": link
         }
