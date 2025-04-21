@@ -1,0 +1,22 @@
+[build]
+builder = "nixpacks"
+buildDirectory = "."
+watchPatterns = ["/"]
+
+[deploy]
+startCommand = "sleep 45 && python -m alembic upgrade head && PYTHONUNBUFFERED=1 LOG_LEVEL=debug UVICORN_WORKERS=1 MAX_WORKERS=1 python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level debug --timeout-keep-alive 75 --limit-concurrency 50 --backlog 2048"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+healthcheckInterval = 45
+restartPolicyMaxRetries = 5
+
+[deploy.env]
+ENVIRONMENT = "production"
+DEBUG = "true"
+POOL_SIZE = "5"
+MAX_OVERFLOW = "10"
+POOL_TIMEOUT = "60"
+POOL_RECYCLE = "1800"
+SQLALCHEMY_POOL_PRE_PING = "true"
+POSTGRES_SCHEME = "postgresql+asyncpg" 
