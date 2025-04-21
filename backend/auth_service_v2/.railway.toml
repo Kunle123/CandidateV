@@ -1,59 +1,61 @@
 [build]
 # Trigger rebuild - Database connection configured
-builder = "nixpacks"
+builder = "dockerfile"
 buildCommand = "pip install -e . && pip install -r requirements.txt"
 buildDirectory = "backend/auth_service_v2"
 dockerfilePath = "Dockerfile"
 watchPatterns = ["/"]
 
 [deploy]
-startCommand = "PYTHONPATH=/app alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level info"
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 healthcheckInterval = 45
 restartPolicyMaxRetries = 5
 
-[deploy.env]
-# API Configuration
-API_V1_STR = "/api/v1"
-PROJECT_NAME = "CandidateV Authentication Service"
-VERSION = "2.0.0"
-
-# Environment
+[deploy.envVars]
 ENVIRONMENT = "production"
 DEBUG = "false"
-
-# Database Configuration
-DATABASE_URL = "${{Postgres.DATABASE_URL}}"
 USE_SYNC_DRIVER = "true"
 
-# Connection Pool Settings
+# Database configuration
+DATABASE_URL = "${DATABASE_URL}"
+POSTGRES_SERVER = "postgres.railway.internal"
+POSTGRES_USER = "${POSTGRES_USER}"
+POSTGRES_PASSWORD = "${POSTGRES_PASSWORD}"
+POSTGRES_DB = "${POSTGRES_DB}"
+POSTGRES_PORT = "5432"
+
+# API configuration
+API_V1_STR = "/api/v1"
+PROJECT_NAME = "auth_service_v2"
+
+# Security
+SECRET_KEY = "${SECRET_KEY}"
+ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+REFRESH_TOKEN_EXPIRE_MINUTES = "10080"  # 7 days
+
+# CORS configuration
+BACKEND_CORS_ORIGINS = "*"
+
+# Email configuration
+SMTP_TLS = "true"
+SMTP_PORT = "587"
+SMTP_HOST = "smtp.gmail.com"
+SMTP_USER = "${SMTP_USER}"
+SMTP_PASSWORD = "${SMTP_PASSWORD}"
+EMAILS_FROM_EMAIL = "${EMAILS_FROM_EMAIL}"
+EMAILS_FROM_NAME = "${PROJECT_NAME}"
+
+# Connection pool settings
 POOL_SIZE = "5"
 MAX_OVERFLOW = "10"
-POOL_TIMEOUT = "60"
+POOL_TIMEOUT = "30"
 POOL_RECYCLE = "1800"
-POOL_PRE_PING = "true"
+ECHO_SQL = "false"
 
-# Security Settings
-SECRET_KEY = "${{Auth_v2.SECRET_KEY}}"
-ACCESS_TOKEN_EXPIRE_MINUTES = "30"
-REFRESH_TOKEN_EXPIRE_DAYS = "7"
-ALGORITHM = "HS256"
-RATE_LIMIT_PER_MINUTE = "60"
-
-# CORS Configuration
-BACKEND_CORS_ORIGINS = "${{Auth_v2.RAILWAY_PUBLIC_DOMAIN}}"
-
-# Email Configuration
-MAIL_FROM = "noreply@candidatev.com"
-MAIL_FROM_NAME = "CandidateV"
-EMAILS_FROM_EMAIL = "noreply@candidatev.com"
-EMAILS_FROM_NAME = "CandidateV"
-MAIL_USERNAME = "${{Auth_v2.MAIL_USERNAME}}"
-MAIL_PASSWORD = "${{Auth_v2.MAIL_PASSWORD}}"
-MAIL_PORT = "587"
-MAIL_SERVER = "smtp.gmail.com"
-MAIL_TLS = "true"
-MAIL_SSL = "false"
-USE_CREDENTIALS = "true" 
+# Temporarily removed health check config
+# healthcheckPath = "/api/v1/health"
+# healthcheckTimeout = 300
+# healthcheckInterval = 45 
