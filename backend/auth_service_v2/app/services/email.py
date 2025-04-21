@@ -6,15 +6,15 @@ from pydantic import EmailStr
 from app.core.config import settings
 
 conf = ConnectionConfig(
-    MAIL_USERNAME=settings.SMTP_USER,
-    MAIL_PASSWORD=settings.SMTP_PASSWORD,
-    MAIL_FROM=settings.EMAILS_FROM_EMAIL,
-    MAIL_PORT=settings.SMTP_PORT,
-    MAIL_SERVER=settings.SMTP_HOST,
-    MAIL_FROM_NAME=settings.PROJECT_NAME,
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
+    MAIL_USERNAME=settings.MAIL_USERNAME,
+    MAIL_PASSWORD=settings.MAIL_PASSWORD,
+    MAIL_FROM=settings.MAIL_FROM,
+    MAIL_PORT=settings.MAIL_PORT,
+    MAIL_SERVER=settings.MAIL_SERVER,
+    MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
+    MAIL_STARTTLS=settings.MAIL_TLS,
+    MAIL_SSL_TLS=settings.MAIL_SSL,
+    USE_CREDENTIALS=settings.USE_CREDENTIALS,
     TEMPLATE_FOLDER=Path(__file__).parent.parent / 'templates'
 )
 
@@ -66,8 +66,8 @@ async def send_reset_password_email(
     with open(Path(__file__).parent.parent / "templates" / "password_reset.html") as f:
         template_str = f.read()
     
-    server_host = settings.SERVER_HOST
-    link = f"{server_host}/reset-password?token={token}"
+    # Use API base URL for the reset link
+    link = f"{settings.API_V1_STR}/auth/password-reset/reset?token={token}"
     
     await send_email(
         email_to=email_to,
@@ -77,7 +77,7 @@ async def send_reset_password_email(
             "project_name": settings.PROJECT_NAME,
             "username": username,
             "email": email_to,
-            "valid_hours": settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS,
+            "valid_hours": settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS,
             "link": link
         }
     )
@@ -94,8 +94,8 @@ async def send_verification_email(
     with open(Path(__file__).parent.parent / "templates" / "email_verification.html") as f:
         template_str = f.read()
     
-    server_host = settings.SERVER_HOST
-    link = f"{server_host}/verify-email?token={token}"
+    # Use API base URL for the verification link
+    link = f"{settings.API_V1_STR}/users/verify-email?token={token}"
     
     await send_email(
         email_to=email_to,

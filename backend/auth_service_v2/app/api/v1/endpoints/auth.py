@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_400_BAD_REQUEST
 
 from app.api.deps.db import get_db
@@ -25,7 +25,7 @@ router = APIRouter()
 
 @router.post("/login", response_model=Token)
 async def login(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Token:
     """
@@ -63,7 +63,7 @@ async def login(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     refresh_token: str = None
 ) -> Token:
     """
@@ -101,7 +101,7 @@ async def refresh_token(
 async def request_password_reset(
     email: str,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
     Request a password reset token.
@@ -112,7 +112,7 @@ async def request_password_reset(
 @router.post("/password-reset/verify")
 async def verify_reset_token(
     token: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
     Verify that a password reset token is valid.
@@ -129,7 +129,7 @@ async def verify_reset_token(
 async def reset_user_password(
     token: str,
     new_password: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
     Reset password using a reset token.
