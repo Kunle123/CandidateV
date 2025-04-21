@@ -1,3 +1,0 @@
-"""
-Authentication service business logic
-""" 
