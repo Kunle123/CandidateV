@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         return v
 
     # Database Configuration
-    POSTGRES_SCHEME: str = os.getenv("POSTGRES_SCHEME", "postgresql+asyncpg")
+    POSTGRES_SCHEME: str = "postgresql+asyncpg"  # Always use async scheme
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
@@ -46,32 +46,46 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
     
     # The complete Database URL (optional, will be constructed if not provided)
-    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
-    
+    DATABASE_URL: Optional[str] = None
+
     # SQLAlchemy Database URI (will be set by validator)
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
+
+    @validator("DATABASE_URL", pre=True)
+    def convert_database_url(cls, v: Optional[str]) -> Optional[str]:
+        """Convert DATABASE_URL to async format if needed."""
+        if not v:
+            return v
+        # Convert standard postgres URLs to async format
+        if v.startswith(("postgresql://", "postgres://")):
+            return v.replace("postgresql://", "postgresql+asyncpg://").replace("postgres://", "postgresql+asyncpg://")
+        return v
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         """Assemble database connection string."""
         if isinstance(v, str):
-            return v.replace("postgresql://", "postgresql+asyncpg://")
+            return v
         
         # First check if complete DATABASE_URL is provided
         db_url = values.get("DATABASE_URL")
         if db_url:
-            # Convert to async URL if needed
-            return db_url.replace("postgresql://", "postgresql+asyncpg://")
+            return db_url  # Already converted to async format by previous validator
             
         # Otherwise construct from components
-        return PostgresDsn.build(
-            scheme=values.get("POSTGRES_SCHEME"),
-            username=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            port=int(values.get("POSTGRES_PORT")),
-            path=f"/{values.get('POSTGRES_DB')}"
-        )
+        try:
+            # Build URL with async scheme
+            return PostgresDsn.build(
+                scheme=values.get("POSTGRES_SCHEME"),
+                username=values.get("POSTGRES_USER"),
+                password=values.get("POSTGRES_PASSWORD"),
+                host=values.get("POSTGRES_SERVER"),
+                port=int(values.get("POSTGRES_PORT")),
+                path=f"/{values.get('POSTGRES_DB')}"
+            )
+        except Exception as e:
+            # Fallback to manual construction if PostgresDsn.build fails
+            return f"postgresql+asyncpg://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
 
     # Email Configuration
     MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
