@@ -1,15 +1,20 @@
 """Security utilities."""
 from datetime import datetime, timedelta
-from typing import Any, Union, Optional
+from typing import Any, Dict, Optional
+from jose import jwt
+from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
-
 from app.core.config import settings
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
-def create_token(subject: Union[str, Any], expires_delta: timedelta = None, token_type: str = "access") -> str:
-    """Create a JWT token."""
+async def create_token(
+    subject: str,
+    token_type: str,
+    expires_delta: Optional[timedelta] = None
+) -> str:
+    """Create JWT token."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -17,36 +22,57 @@ def create_token(subject: Union[str, Any], expires_delta: timedelta = None, toke
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
     
-    to_encode = {"exp": expire, "sub": str(subject), "type": token_type}
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    to_encode = {
+        "exp": expire,
+        "sub": subject,
+        "type": token_type
+    }
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )
     return encoded_jwt
 
-def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Create an access token."""
-    return create_token(subject, expires_delta, "access")
+async def verify_token(token: str, token_type: str) -> str:
+    """Verify JWT token and return subject."""
+    payload = jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[settings.ALGORITHM]
+    )
+    if payload.get("type") != token_type:
+        raise ValueError("Invalid token type")
+    return payload.get("sub")
 
-def create_refresh_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Create a refresh token."""
-    if not expires_delta:
-        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    return create_token(subject, expires_delta, "refresh")
+async def create_access_token(subject: str) -> str:
+    """Create access token."""
+    return await create_token(
+        subject=subject,
+        token_type="access",
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
 
-def create_password_reset_token(email: str) -> str:
-    """Create a password reset token."""
-    expire = datetime.utcnow() + timedelta(hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS)
-    return create_token(email, expire, "password_reset")
+async def create_refresh_token(subject: str) -> str:
+    """Create refresh token."""
+    return await create_token(
+        subject=subject,
+        token_type="refresh",
+        expires_delta=timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+    )
 
-def create_email_verification_token(email: str) -> str:
-    """Create an email verification token."""
-    expire = datetime.utcnow() + timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS)
-    return create_token(email, expire, "email_verification")
+async def create_password_reset_token(subject: str) -> str:
+    """Create password reset token."""
+    return await create_token(
+        subject=subject,
+        token_type="reset",
+        expires_delta=timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    )
 
-def verify_token(token: str, token_type: str) -> Optional[str]:
-    """Verify a token and return the email if valid."""
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        if payload["type"] != token_type:
-            return None
-        return payload["sub"]
-    except JWTError:
-        return None 
+async def create_email_verification_token(subject: str) -> str:
+    """Create email verification token."""
+    return await create_token(
+        subject=subject,
+        token_type="verify_email",
+        expires_delta=timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
+    ) 
