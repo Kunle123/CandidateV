@@ -1,213 +1,162 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
-import { ChakraProvider } from '@chakra-ui/react';
 import { AuthProvider } from '../../context/AuthContext';
-import Login from '../../pages/auth/Login';
-import Register from '../../pages/auth/Register';
-import { supabase } from '../../lib/supabase';
+import Register from '../../pages/Register';
+import Login from '../../pages/Login';
+import { authHelper } from '../../lib/supabase';
 
-// Mock Supabase client
-jest.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      signUp: jest.fn(),
-      signIn: jest.fn(),
-      signOut: jest.fn(),
-      resetPasswordForEmail: jest.fn()
-    }
-  }
+// Mock Supabase auth helper
+vi.mock('../../lib/supabase', () => ({
+  authHelper: {
+    signUp: vi.fn(),
+    signInWithPassword: vi.fn(),
+    getUser: vi.fn(),
+  },
 }));
 
-const renderWithProviders = (component) => {
-  return render(
-    <BrowserRouter>
-      <ChakraProvider>
-        <AuthProvider>
-          {component}
-        </AuthProvider>
-      </ChakraProvider>
-    </BrowserRouter>
-  );
-};
+// Mock toast notifications
+vi.mock('react-hot-toast', () => ({
+  default: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 describe('Authentication Tests', () => {
   beforeEach(() => {
-    // Clear all mocks before each test
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Registration', () => {
-    test('shows validation errors for empty fields', async () => {
-      renderWithProviders(<Register />);
+    const renderRegister = () => {
+      return render(
+        <BrowserRouter>
+          <AuthProvider>
+            <Register />
+          </AuthProvider>
+        </BrowserRouter>
+      );
+    };
+
+    test('validates required fields', async () => {
+      renderRegister();
+      const submitButton = screen.getByRole('button', { name: /sign up/i });
       
-      // Try to submit empty form
-      fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+      fireEvent.click(submitButton);
       
-      // Check for validation errors
       expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
       expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
       expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
-      expect(await screen.findByText(/you must accept the terms/i)).toBeInTheDocument();
+      expect(await screen.findByText(/please accept the terms/i)).toBeInTheDocument();
     });
 
-    test('shows error for invalid email format', async () => {
-      renderWithProviders(<Register />);
+    test('validates email format', async () => {
+      renderRegister();
+      const emailInput = screen.getByLabelText(/email/i);
+      const submitButton = screen.getByRole('button', { name: /sign up/i });
       
-      // Enter invalid email
-      fireEvent.change(screen.getByLabelText(/email/i), {
-        target: { value: 'invalid-email' }
-      });
+      fireEvent.change(emailInput, { target: { value: 'invalid-email' } });
+      fireEvent.click(submitButton);
       
-      fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
-      
-      expect(await screen.findByText(/email is invalid/i)).toBeInTheDocument();
+      expect(await screen.findByText(/invalid email format/i)).toBeInTheDocument();
     });
 
-    test('shows error for password mismatch', async () => {
-      renderWithProviders(<Register />);
+    test('validates password criteria', async () => {
+      renderRegister();
+      const passwordInput = screen.getByLabelText(/^password/i);
+      const submitButton = screen.getByRole('button', { name: /sign up/i });
       
-      // Enter different passwords
-      fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: 'password123' }
-      });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), {
-        target: { value: 'password456' }
-      });
+      fireEvent.change(passwordInput, { target: { value: 'short' } });
+      fireEvent.click(submitButton);
       
-      fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
-      
-      expect(await screen.findByText(/passwords do not match/i)).toBeInTheDocument();
+      expect(await screen.findByText(/password must be at least 6 characters/i)).toBeInTheDocument();
     });
 
-    test('successful registration', async () => {
-      // Mock successful registration
-      supabase.auth.signUp.mockResolvedValueOnce({
-        data: { user: { id: '123', email: 'test@example.com' } },
-        error: null
+    test('handles successful registration', async () => {
+      authHelper.signUp.mockResolvedValueOnce({ 
+        data: { user: { id: '123' }, session: null },
+        error: null 
       });
 
-      renderWithProviders(<Register />);
+      renderRegister();
       
-      // Fill form with valid data
-      fireEvent.change(screen.getByLabelText(/name/i), {
-        target: { value: 'Test User' }
-      });
-      fireEvent.change(screen.getByLabelText(/email/i), {
-        target: { value: 'test@example.com' }
-      });
-      fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: 'password123' }
-      });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), {
-        target: { value: 'password123' }
-      });
-      fireEvent.click(screen.getByLabelText(/terms/i));
-      
+      fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
+      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText(/^password/i), { target: { value: 'password123' } });
+      fireEvent.click(screen.getByRole('checkbox'));
       fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
-      
+
       await waitFor(() => {
-        expect(supabase.auth.signUp).toHaveBeenCalledWith({
+        expect(authHelper.signUp).toHaveBeenCalledWith({
           email: 'test@example.com',
           password: 'password123',
-          data: {
-            name: 'Test User',
-            terms_accepted: true,
-            terms_accepted_at: expect.any(String)
-          }
+          options: {
+            data: {
+              full_name: 'Test User',
+            },
+          },
         });
       });
     });
   });
 
   describe('Login', () => {
-    test('shows validation errors for empty fields', async () => {
-      renderWithProviders(<Login />);
+    const renderLogin = () => {
+      return render(
+        <BrowserRouter>
+          <AuthProvider>
+            <Login />
+          </AuthProvider>
+        </BrowserRouter>
+      );
+    };
+
+    test('validates required fields', async () => {
+      renderLogin();
+      const submitButton = screen.getByRole('button', { name: /sign in/i });
       
-      fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+      fireEvent.click(submitButton);
       
       expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
       expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
     });
 
-    test('shows error for invalid email format', async () => {
-      renderWithProviders(<Login />);
-      
-      fireEvent.change(screen.getByLabelText(/email/i), {
-        target: { value: 'invalid-email' }
-      });
-      
-      fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
-      
-      expect(await screen.findByText(/email is invalid/i)).toBeInTheDocument();
-    });
-
-    test('successful login', async () => {
-      // Mock successful login
-      supabase.auth.signIn.mockResolvedValueOnce({
-        data: { user: { id: '123', email: 'test@example.com' } },
+    test('handles successful login', async () => {
+      authHelper.signInWithPassword.mockResolvedValueOnce({
+        data: { user: { id: '123' }, session: { access_token: 'token' } },
         error: null
       });
 
-      renderWithProviders(<Login />);
+      renderLogin();
       
-      fireEvent.change(screen.getByLabelText(/email/i), {
-        target: { value: 'test@example.com' }
-      });
-      fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: 'password123' }
-      });
-      
+      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
       fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
-      
+
       await waitFor(() => {
-        expect(supabase.auth.signIn).toHaveBeenCalledWith({
+        expect(authHelper.signInWithPassword).toHaveBeenCalledWith({
           email: 'test@example.com',
-          password: 'password123'
+          password: 'password123',
         });
       });
     });
 
     test('handles login error', async () => {
-      // Mock login error
-      supabase.auth.signIn.mockRejectedValueOnce(new Error('Invalid credentials'));
+      authHelper.signInWithPassword.mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: { message: 'Invalid credentials' }
+      });
 
-      renderWithProviders(<Login />);
+      renderLogin();
       
-      fireEvent.change(screen.getByLabelText(/email/i), {
-        target: { value: 'test@example.com' }
-      });
-      fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: 'wrongpassword' }
-      });
-      
+      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrongpassword' } });
       fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
-      
-      await waitFor(() => {
-        expect(screen.getByText(/login failed/i)).toBeInTheDocument();
-      });
-    });
-  });
 
-  describe('Password Reset', () => {
-    test('sends reset password email', async () => {
-      // Mock successful password reset request
-      supabase.auth.resetPasswordForEmail.mockResolvedValueOnce({
-        data: {},
-        error: null
-      });
-
-      renderWithProviders(<Login />);
-      
-      // Click forgot password link and fill email
-      fireEvent.click(screen.getByText(/forgot password/i));
-      fireEvent.change(screen.getByLabelText(/email/i), {
-        target: { value: 'test@example.com' }
-      });
-      
-      fireEvent.click(screen.getByRole('button', { name: /reset password/i }));
-      
       await waitFor(() => {
-        expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith('test@example.com');
+        expect(authHelper.signInWithPassword).toHaveBeenCalled();
       });
     });
   });

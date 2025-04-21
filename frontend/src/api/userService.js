@@ -1,90 +1,72 @@
-import apiClient from './apiClient';
-import config from './config';
-import { retryApiCall, formatApiError } from './utils';
+import { profileHelper, preferencesHelper } from '../lib/supabaseDb';
+import { retryApiCall } from './utils';
+import { supabase } from '../lib/supabase';
 
 // User profile service
 const userService = {
   // Get current user profile
   async getCurrentProfile() {
-    try {
-      const response = await apiClient.get(config.endpoints.user.profile);
-      return { success: true, data: response.data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: formatApiError(error)
-      };
-    }
+    return await profileHelper.getCurrentProfile();
   },
 
   // Get current user profile with retry on network errors
   async getCurrentProfileWithRetry() {
     try {
-      const response = await retryApiCall(
-        () => apiClient.get(config.endpoints.user.profile),
+      const result = await retryApiCall(
+        () => profileHelper.getCurrentProfile(),
         { maxRetries: 3 }
       );
-      return { success: true, data: response.data };
+      return result;
     } catch (error) {
       return { 
         success: false, 
-        error: formatApiError(error)
+        error: error.message
       };
     }
   },
 
   // Update user profile
   async updateProfile(profileData) {
-    try {
-      const response = await apiClient.patch(config.endpoints.user.profile, profileData);
-      return { success: true, data: response.data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: formatApiError(error)
-      };
-    }
+    return await profileHelper.updateProfile(profileData);
   },
 
   // Update user preferences
   async updatePreferences(preferences) {
-    try {
-      const response = await apiClient.patch(config.endpoints.user.preferences, preferences);
-      return { success: true, data: response.data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: formatApiError(error)
-      };
-    }
+    return await preferencesHelper.updatePreferences(preferences);
   },
 
   // Upload profile image
-  async uploadProfileImage(formData) {
-    try {
-      const response = await apiClient.post(`${config.endpoints.user.profile}/profile-image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      return { success: true, data: response.data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: formatApiError(error)
-      };
-    }
+  async uploadProfileImage(file) {
+    return await profileHelper.uploadProfileImage(file);
   },
 
   // Delete profile image
   async deleteProfileImage() {
     try {
-      await apiClient.delete(`${config.endpoints.user.profile}/profile-image`);
-      return { success: true };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      // Delete the image from storage
+      const { error: deleteError } = await supabase.storage
+        .from('profile-images')
+        .remove([`${user.id}/profile`]);
+
+      if (deleteError) throw deleteError;
+
+      // Update profile to remove image URL
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
     } catch (error) {
       return { 
         success: false, 
-        error: formatApiError(error)
+        error: error.message
       };
     }
   }

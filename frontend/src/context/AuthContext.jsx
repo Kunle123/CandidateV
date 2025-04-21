@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { auth } from '../lib/supabase'
+import { authHelper } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     // Check active sessions and sets the user
     const getSession = async () => {
       try {
-        const user = await auth.getUser()
+        const user = await authHelper.getUser()
         setUser(user)
         setError(null)
       } catch (error) {
@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
     getSession()
 
     // Listen for auth state changes
-    const { data: { subscription } } = auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = authHelper.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       setError(null)
       setLoading(false)
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        const user = await auth.signUp({
+        const user = await authHelper.signUp({
           email,
           password,
           name,
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        const user = await auth.signInWithPassword({ email, password })
+        const user = await authHelper.signInWithPassword({ email, password })
         setUser(user)
         return user
       } catch (error) {
@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        await auth.signOut()
+        await authHelper.signOut()
         setUser(null)
       } catch (error) {
         console.error('Sign out error:', error)
@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        await auth.resetPassword(email)
+        await authHelper.resetPassword(email)
       } catch (error) {
         console.error('Password reset error:', error)
         setError(error.message)
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        await auth.updatePassword(newPassword)
+        await authHelper.updatePassword(newPassword)
       } catch (error) {
         console.error('Password update error:', error)
         setError(error.message)

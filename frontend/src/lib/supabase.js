@@ -1,3 +1,16 @@
+/**
+ * Supabase Client Configuration and Auth Helpers
+ * 
+ * This file serves as the central configuration point for Supabase in the application.
+ * It exports:
+ * - supabase: The main Supabase client instance
+ * - auth: Direct access to Supabase auth
+ * - authHelper: A collection of wrapped auth methods with error handling
+ * 
+ * For testing: Use the standard environment variables (VITE_SUPABASE_*).
+ * For development/production: Variables are loaded from import.meta.env
+ */
+
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -7,6 +20,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
+// Create a single Supabase client instance for the entire application
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -15,9 +29,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
+// Export direct auth access
 export const auth = supabase.auth
 
-// Auth helper functions
+// Auth helper functions with consistent error handling
 export const authHelper = {
   signUp: async ({ email, password, ...data }) => {
     const { data: { user }, error } = await supabase.auth.signUp({
