@@ -17,6 +17,9 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
+    # Enable UUID extension
+    op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
+    
     # Create a new UUID column
     op.add_column('users', sa.Column('uuid_id', UUID(as_uuid=True), nullable=True))
     
