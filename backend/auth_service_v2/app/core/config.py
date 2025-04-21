@@ -74,15 +74,27 @@ class Settings(BaseSettings):
         )
 
     # Email Configuration
-    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "test@example.com")
-    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "testpassword")
-    MAIL_FROM: EmailStr = os.getenv("MAIL_FROM", "test@example.com")
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
+    MAIL_FROM: str = os.getenv("MAIL_FROM", "noreply@candidatev.com")
     MAIL_PORT: int = int(os.getenv("MAIL_PORT", "587"))
-    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.example.com")
-    MAIL_TLS: bool = os.getenv("MAIL_TLS", "True").lower() == "true"
-    MAIL_SSL: bool = os.getenv("MAIL_SSL", "False").lower() == "true"
-    USE_CREDENTIALS: bool = os.getenv("USE_CREDENTIALS", "True").lower() == "true"
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "CandidateV")
+    MAIL_TLS: bool = os.getenv("MAIL_TLS", "true").lower() == "true"
+    MAIL_SSL: bool = os.getenv("MAIL_SSL", "false").lower() == "true"
+    USE_CREDENTIALS: bool = os.getenv("USE_CREDENTIALS", "true").lower() == "true"
+
+    # For backward compatibility
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Use SMTP settings if MAIL settings are not provided
+        if not self.MAIL_USERNAME and self.SMTP_USER:
+            self.MAIL_USERNAME = self.SMTP_USER
+        if not self.MAIL_PASSWORD and self.SMTP_PASSWORD:
+            self.MAIL_PASSWORD = self.SMTP_PASSWORD
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
