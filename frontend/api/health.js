@@ -1,8 +1,9 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+// @ts-check
+import fetch from 'node-fetch';
 
 /**
- * @param {VercelRequest} req
- * @param {VercelResponse} res
+ * @param {import('http').IncomingMessage} req
+ * @param {import('http').ServerResponse} res
  */
 export default async function handler(req, res) {
   try {
@@ -42,17 +43,27 @@ export default async function handler(req, res) {
       })
     );
 
-    return res.status(200).json({
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.statusCode = 200;
+    res.end(JSON.stringify({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: process.env.VITE_APP_VERSION || '1.0.0',
-      services: serviceChecks.map(result => result.value)
-    });
+      services: serviceChecks.map(result => 
+        result.status === 'fulfilled' 
+          ? result.value 
+          : { service: 'unknown', status: 'error', error: result.reason }
+      )
+    }));
   } catch (error) {
-    return res.status(503).json({
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.statusCode = 503;
+    res.end(JSON.stringify({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       error: error.message
-    });
+    }));
   }
 } 

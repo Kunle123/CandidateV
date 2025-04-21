@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "pages/api/*.js": {
+    "api/*.js": {
       "runtime": "@vercel/node@3.0.0",
       "nodeVersion": "18.x"
     }
@@ -16,15 +16,42 @@
     "VITE_ENABLE_AUTH": "true",
     "VITE_ENABLE_ANALYTICS": "true"
   },
-  "rewrites": [
-    { "source": "/api/health", "destination": "/pages/api/health" },
-    { "source": "/api/auth/:path*", "destination": "https://candidatev-auth-service.up.railway.app/api/auth/:path*" },
-    { "source": "/api/users/:path*", "destination": "https://candidatev-user-service.up.railway.app/api/users/:path*" },
-    { "source": "/api/cv/:path*", "destination": "https://candidatev-cv-service.up.railway.app/api/cv/:path*" },
-    { "source": "/api/export/:path*", "destination": "https://candidatev-export-service.up.railway.app/api/export/:path*" },
-    { "source": "/api/ai/:path*", "destination": "https://ai-service-production.up.railway.app/api/ai/:path*" },
-    { "source": "/api/payments/:path*", "destination": "https://candidatev-payment-service.up.railway.app/api/payments/:path*" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    {
+      "src": "/api/health",
+      "dest": "/api/health.js"
+    },
+    {
+      "src": "/api/auth/(.*)",
+      "dest": "https://candidatev-auth-service.up.railway.app/api/auth/$1"
+    },
+    {
+      "src": "/api/users/(.*)",
+      "dest": "https://candidatev-user-service.up.railway.app/api/users/$1"
+    },
+    {
+      "src": "/api/cv/(.*)",
+      "dest": "https://candidatev-cv-service.up.railway.app/api/cv/$1"
+    },
+    {
+      "src": "/api/export/(.*)",
+      "dest": "https://candidatev-export-service.up.railway.app/api/export/$1"
+    },
+    {
+      "src": "/api/ai/(.*)",
+      "dest": "https://ai-service-production.up.railway.app/api/ai/$1"
+    },
+    {
+      "src": "/api/payments/(.*)",
+      "dest": "https://candidatev-payment-service.up.railway.app/api/payments/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
   ],
   "headers": [
     {
