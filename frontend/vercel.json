@@ -13,21 +13,32 @@
   "env": {
     "VITE_SUPABASE_URL": "https://aqmybjkzxfwiizorveco.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbXliamt6eGZ3aWl6b3J2ZWNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUyNDU1NTYsImV4cCI6MjA2MDgyMTU1Nn0.Ais3ZEu95OyqitcscyfmztxogCqcqrHjo9BZWPrqQKw",
+    "SUPABASE_URL": "https://aqmybjkzxfwiizorveco.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbXliamt6eGZ3aWl6b3J2ZWNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUyNDU1NTYsImV4cCI6MjA2MDgyMTU1Nn0.Ais3ZEu95OyqitcscyfmztxogCqcqrHjo9BZWPrqQKw",
     "VITE_API_BASE_URL": "https://candidate-v-frontend.vercel.app/api",
     "VITE_ENABLE_AUTH": "true",
     "VITE_ENABLE_ANALYTICS": "true"
   },
   "rewrites": [
-    { "source": "/api/health", "destination": "/api/health.js" },
-    { "source": "/api/auth/(.*)", "destination": "https://candidatev-auth-service.up.railway.app/api/auth/$1" },
-    { "source": "/api/users/(.*)", "destination": "https://candidatev-user-service.up.railway.app/api/users/$1" },
-    { "source": "/api/cv/(.*)", "destination": "https://candidatev-cv-service.up.railway.app/api/cv/$1" },
-    { "source": "/api/export/(.*)", "destination": "https://candidatev-export-service.up.railway.app/api/export/$1" },
-    { "source": "/api/ai/(.*)", "destination": "https://ai-service-production.up.railway.app/api/ai/$1" },
-    { "source": "/api/payments/(.*)", "destination": "https://candidatev-payment-service.up.railway.app/api/payments/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://api-gateway-production.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "s-maxage=1, stale-while-revalidate=59"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
