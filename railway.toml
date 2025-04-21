@@ -1,5 +1,5 @@
 [build]
-builder = "nixpacks"
+builder = "DOCKERFILE"
 buildCommand = "pip install -r requirements.txt"
 NO_CACHE = "1"
 

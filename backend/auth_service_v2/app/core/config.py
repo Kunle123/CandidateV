@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         return v
 
     # Database Configuration
-    POSTGRES_SCHEME: str = "postgresql+asyncpg"  # Always use async scheme
+    POSTGRES_SCHEME: str = "postgresql+asyncpg"  # Default async scheme
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
@@ -57,9 +57,7 @@ class Settings(BaseSettings):
         """Convert DATABASE_URL to async format if needed."""
         if not v:
             return v
-        # Convert standard postgres URLs to async format
-        if v.startswith(("postgresql://", "postgres://")):
-            return v.replace("postgresql://", "postgresql+asyncpg://").replace("postgres://", "postgresql+asyncpg://")
+        # Keep the URL as is - we'll handle async conversion in SQLALCHEMY_DATABASE_URI
         return v
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
@@ -71,12 +69,16 @@ class Settings(BaseSettings):
         # First check if complete DATABASE_URL is provided
         db_url = values.get("DATABASE_URL")
         if db_url:
-            return db_url  # Already converted to async format by previous validator
+            # For migrations, use regular postgresql scheme
+            if os.getenv("USE_SYNC_DRIVER", "").lower() == "true":
+                return db_url.replace("postgresql+asyncpg://", "postgresql://")
+            # For runtime, use asyncpg
+            return db_url.replace("postgresql://", "postgresql+asyncpg://").replace("postgres://", "postgresql+asyncpg://")
             
         # Otherwise construct from components
         try:
-            # Manually construct the URL since we're using a custom scheme
-            return f"{values.get('POSTGRES_SCHEME')}://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
+            scheme = "postgresql" if os.getenv("USE_SYNC_DRIVER", "").lower() == "true" else values.get('POSTGRES_SCHEME')
+            return f"{scheme}://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
         except Exception as e:
             print(f"Error constructing database URL: {e}")
             return None

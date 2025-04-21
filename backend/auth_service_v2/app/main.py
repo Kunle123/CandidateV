@@ -10,6 +10,7 @@ import os
 import asyncio
 from pathlib import Path
 import sys
+import time
 
 from .core.config import settings
 from .db.session import AsyncSessionLocal, engine, verify_database_connection, init_db
@@ -71,22 +72,6 @@ async def initialize_database():
                 logger.error("All database initialization attempts failed")
                 return False
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup."""
-    try:
-        logger.info("Starting application initialization...")
-        
-        # Initialize database
-        if not await initialize_database():
-            logger.error("Failed to initialize database")
-            # Don't raise an exception here, let the health check handle it
-        
-        logger.info("Application startup completed successfully")
-    except Exception as e:
-        logger.error(f"Application startup failed: {str(e)}")
-        # Don't raise an exception, let the health check handle it
-
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -100,21 +85,70 @@ async def root():
 async def health_check():
     """Health check endpoint."""
     try:
-        # Check database connection
-        if not await verify_database_connection():
-            return JSONResponse(
-                status_code=503,
-                content={"status": "error", "message": "Database connection failed"}
-            )
+        logger.info("Health check started")
         
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "environment": settings.ENVIRONMENT
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
+        # First, just return healthy if we're still in startup grace period
+        startup_grace_period = 45  # seconds
+        if (time.time() - app.state.start_time) < startup_grace_period:
+            logger.info("Health check: within grace period")
+            return {
+                "status": "starting",
+                "message": "Application is starting up",
+                "environment": settings.ENVIRONMENT
+            }
+        
+        # Check database connection with retry
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                if await verify_database_connection():
+                    logger.info("Health check: database connected")
+                    return {
+                        "status": "healthy",
+                        "database": "connected",
+                        "environment": settings.ENVIRONMENT
+                    }
+            except Exception as e:
+                logger.warning(f"Database check attempt {attempt + 1} failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+        
+        logger.error("Health check failed: database connection failed after retries")
         return JSONResponse(
             status_code=503,
-            content={"status": "error", "message": str(e)}
-        ) 
+            content={
+                "status": "error",
+                "message": "Database connection failed after retries",
+                "environment": settings.ENVIRONMENT
+            }
+        )
+    except Exception as e:
+        logger.error(f"Health check failed with unexpected error: {str(e)}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "message": str(e),
+                "environment": settings.ENVIRONMENT
+            }
+        )
+
+# Add startup time tracking
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup."""
+    try:
+        app.state.start_time = time.time()
+        logger.info("Starting application initialization...")
+        
+        # Initialize database
+        if not await initialize_database():
+            logger.error("Failed to initialize database")
+            # Don't raise an exception here, let the health check handle it
+        
+        logger.info("Application startup completed successfully")
+    except Exception as e:
+        logger.error(f"Application startup failed: {str(e)}")
+        # Don't raise an exception, let the health check handle it 

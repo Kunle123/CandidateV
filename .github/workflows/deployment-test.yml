@@ -1,4 +1,4 @@
-name: Test Deployed Services
+name: Test Deployed Auth Service
 
 on:
   workflow_dispatch:  # Manual trigger
@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.11'
+          python-version: '3.9'
       
       - name: Install dependencies
         run: |
@@ -26,5 +26,4 @@ jobs:
         run: |
           python test_deployment.py
         env:
-          AUTH_SERVICE_URL: ${{ secrets.AUTH_SERVICE_URL }}
-          USER_SERVICE_URL: ${{ secrets.USER_SERVICE_URL }} 
+          AUTH_SERVICE_URL: ${{ secrets.AUTH_SERVICE_URL }} 
