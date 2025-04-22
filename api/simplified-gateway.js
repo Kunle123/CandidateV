@@ -180,6 +180,110 @@ const cvProxy = createServiceProxy('CV Service', process.env.CV_SERVICE_URL, '/a
   }
 });
 
+// AI service proxy configuration
+const aiProxy = createServiceProxy('AI Service', process.env.AI_SERVICE_URL, '/api/ai', {
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Proxying request to AI Service:', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      target: process.env.AI_SERVICE_URL
+    });
+    
+    // Forward authorization header
+    if (req.headers.authorization) {
+      proxyReq.setHeader('authorization', req.headers.authorization);
+    }
+    
+    proxyReq.setHeader('Content-Type', 'application/json');
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Received response from AI Service:', {
+      statusCode: proxyRes.statusCode,
+      path: req.path
+    });
+    
+    // Handle CORS headers
+    proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+    proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
+    proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+  },
+  onError: (err, req, res) => {
+    console.error('AI Service proxy error:', {
+      error: err.message,
+      code: err.code,
+      path: req.path,
+      method: req.method
+    });
+    
+    if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') {
+      return res.status(502).json({
+        error: 'Connection error',
+        message: 'Failed to connect to AI service. Please try again.',
+        code: err.code
+      });
+    }
+    
+    res.status(500).json({
+      error: 'Proxy error',
+      message: err.message,
+      code: err.code
+    });
+  }
+});
+
+// Payment service proxy configuration
+const paymentProxy = createServiceProxy('Payment Service', process.env.PAYMENT_SERVICE_URL, '/api/payment', {
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Proxying request to Payment Service:', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      target: process.env.PAYMENT_SERVICE_URL
+    });
+    
+    // Forward authorization header
+    if (req.headers.authorization) {
+      proxyReq.setHeader('authorization', req.headers.authorization);
+    }
+    
+    proxyReq.setHeader('Content-Type', 'application/json');
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Received response from Payment Service:', {
+      statusCode: proxyRes.statusCode,
+      path: req.path
+    });
+    
+    // Handle CORS headers
+    proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+    proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
+    proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+  },
+  onError: (err, req, res) => {
+    console.error('Payment Service proxy error:', {
+      error: err.message,
+      code: err.code,
+      path: req.path,
+      method: req.method
+    });
+    
+    if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') {
+      return res.status(502).json({
+        error: 'Connection error',
+        message: 'Failed to connect to payment service. Please try again.',
+        code: err.code
+      });
+    }
+    
+    res.status(500).json({
+      error: 'Proxy error',
+      message: err.message,
+      code: err.code
+    });
+  }
+});
+
 // Route handlers - Note: Order matters!
 // Specific auth endpoints first
 app.get('/auth/v1/session', async (req, res) => {
