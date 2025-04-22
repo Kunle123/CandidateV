@@ -13,10 +13,10 @@ COPY . .
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=8000
+ENV PORT=3000
 
 # Expose port
-EXPOSE 8000
+EXPOSE 3000
 
 # Run the gateway
 CMD ["node", "simplified-gateway.js"] 

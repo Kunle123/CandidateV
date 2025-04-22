@@ -1,63 +1,71 @@
 const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const port = process.env.PORT || 3000;
 
 // CORS configuration
 app.use(cors());
 
-// Supabase configuration
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqmybjkzxfwiizorveco.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-
-// Service URLs - using Railway internal URLs when available
-const services = {
-  cv: process.env.CV_SERVICE_URL || 'http://candidatev.railway.internal:8003',
-  export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
-  ai: process.env.AI_SERVICE_URL || 'http://ai_service.railway.internal:8002',
-  payment: process.env.PAYMENT_SERVICE_URL || 'http://payment_service.railway.internal:8005'
-};
-
-// Proxy middleware configuration
-const proxyConfig = {
+// Supabase proxy configuration
+const supabaseProxy = createProxyMiddleware({
+  target: process.env.SUPABASE_URL,
   changeOrigin: true,
   pathRewrite: {
-    '^/api/auth/v1': '/auth/v1',
-    '^/api/rest/v1': '/rest/v1'
+    '^/auth/v1': '/auth/v1'
   },
   onProxyReq: (proxyReq, req, res) => {
-    if (SUPABASE_KEY) {
-      proxyReq.setHeader('apikey', SUPABASE_KEY);
-      proxyReq.setHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
+    // Forward necessary Supabase headers
+    proxyReq.setHeader('apikey', process.env.SUPABASE_ANON_KEY);
+    if (req.headers.authorization) {
+      proxyReq.setHeader('authorization', req.headers.authorization);
     }
     proxyReq.setHeader('Content-Type', 'application/json');
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    // Handle CORS headers
+    proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+    proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
+    proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, apikey';
   }
-};
+});
 
-// Supabase auth routes
-app.use('/api/auth/v1', createProxyMiddleware({
-  ...proxyConfig,
-  target: SUPABASE_URL
-}));
+// Export service proxy
+const exportProxy = createProxyMiddleware({
+  target: process.env.EXPORT_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/export': ''
+  }
+});
 
-// Supabase data routes
-app.use('/api/rest/v1', createProxyMiddleware({
-  ...proxyConfig,
-  target: SUPABASE_URL
-}));
+// CV service proxy
+const cvProxy = createProxyMiddleware({
+  target: process.env.CV_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/cv': ''
+  }
+});
 
-// Other service routes
-Object.entries(services).forEach(([service, url]) => {
-  app.use(`/api/${service}`, createProxyMiddleware({
-    target: url,
-    changeOrigin: true,
-    pathRewrite: {
-      [`^/api/${service}`]: ''
-    }
-  }));
+// AI service proxy
+const aiProxy = createProxyMiddleware({
+  target: process.env.AI_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/ai': ''
+  }
+});
+
+// Payment service proxy
+const paymentProxy = createProxyMiddleware({
+  target: process.env.PAYMENT_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/payment': ''
+  }
 });
 
 // Health check endpoint
@@ -66,17 +74,31 @@ app.get('/api/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
-      ...services,
-      supabase: SUPABASE_URL
+      supabase: process.env.SUPABASE_URL,
+      export: process.env.EXPORT_SERVICE_URL,
+      cv: process.env.CV_SERVICE_URL,
+      ai: process.env.AI_SERVICE_URL,
+      payment: process.env.PAYMENT_SERVICE_URL
     }
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Simplified API Gateway running on port ${PORT}`);
+// Route handlers
+app.use('/auth/v1', supabaseProxy);
+app.use('/api/export', exportProxy);
+app.use('/api/cv', cvProxy);
+app.use('/api/ai', aiProxy);
+app.use('/api/payment', paymentProxy);
+
+// Handle OPTIONS requests
+app.options('*', cors());
+
+app.listen(port, () => {
+  console.log(`Simplified API Gateway running on port ${port}\n`);
   console.log('Configured Services:');
-  Object.entries(services).forEach(([name, url]) => {
-    console.log(`- ${name.toUpperCase()} Service: ${url}`);
-  });
-  console.log(`- SUPABASE Service: ${SUPABASE_URL}`);
+  console.log(`- Supabase: ${process.env.SUPABASE_URL}`);
+  console.log(`- EXPORT Service: ${process.env.EXPORT_SERVICE_URL}`);
+  console.log(`- CV Service: ${process.env.CV_SERVICE_URL}`);
+  console.log(`- AI Service: ${process.env.AI_SERVICE_URL}`);
+  console.log(`- PAYMENT Service: ${process.env.PAYMENT_SERVICE_URL}`);
 }); 
