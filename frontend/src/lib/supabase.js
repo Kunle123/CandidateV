@@ -37,6 +37,17 @@ const options = {
 }
 
 // Create Supabase client with API gateway URL
+console.log('Creating Supabase client with config:', {
+  url: 'https://aqmybjkzxfwiizorveco.supabase.co',
+  hasAnonKey: !!supabaseAnonKey,
+  options: {
+    ...options,
+    endpoint: {
+      auth: 'https://api-gw-production.up.railway.app/auth/v1'
+    }
+  }
+});
+
 const supabase = createClient('https://aqmybjkzxfwiizorveco.supabase.co', supabaseAnonKey, {
   ...options,
   endpoint: {
@@ -71,7 +82,11 @@ export const authHelper = {
   },
 
   async signInWithPassword({ email, password }) {
-    console.log('Starting login attempt...');
+    console.log('Starting login attempt with config:', {
+      endpoint: supabase.auth.endpoint,
+      url: supabase.auth.url,
+      headers: supabase.auth.headers
+    });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
