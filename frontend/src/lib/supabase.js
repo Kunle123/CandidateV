@@ -25,7 +25,9 @@ const options = {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storage: window.localStorage,
+    storageKey: 'candidatev-auth-token'
   },
   global: {
     headers: {
@@ -71,10 +73,18 @@ export const authHelper = {
   async signInWithPassword({ email, password }) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      password
+      password,
+      options: {
+        persistSession: true
+      }
     })
     
     if (error) throw error
+
+    if (!data?.session) {
+      throw new Error('No session data returned from login')
+    }
+
     return { data, error }
   },
 
