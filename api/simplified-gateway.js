@@ -9,6 +9,25 @@ const port = process.env.PORT || 3000;
 // CORS configuration
 app.use(cors());
 
+// Helper function to create proxy middleware with fallback
+const createServiceProxy = (serviceName, envUrl, pathPrefix) => {
+  if (!envUrl) {
+    console.warn(`Warning: ${serviceName} URL not configured`);
+    return (req, res) => res.status(503).json({ 
+      error: `${serviceName} not configured`,
+      message: 'Service temporarily unavailable'
+    });
+  }
+  
+  return createProxyMiddleware({
+    target: envUrl,
+    changeOrigin: true,
+    pathRewrite: {
+      [`^${pathPrefix}`]: ''
+    }
+  });
+};
+
 // Supabase proxy configuration
 const supabaseProxy = createProxyMiddleware({
   target: process.env.SUPABASE_URL,
@@ -32,19 +51,33 @@ const supabaseProxy = createProxyMiddleware({
   }
 });
 
+// Service proxies
+const exportProxy = createServiceProxy('Export Service', process.env.EXPORT_SERVICE_URL, '/api/export');
+const cvProxy = createServiceProxy('CV Service', process.env.CV_SERVICE_URL, '/api/cv');
+const aiProxy = createServiceProxy('AI Service', process.env.AI_SERVICE_URL, '/api/ai');
+const paymentProxy = createServiceProxy('Payment Service', process.env.PAYMENT_SERVICE_URL, '/api/payment');
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
-      supabase: process.env.SUPABASE_URL
+      supabase: process.env.SUPABASE_URL,
+      export: process.env.EXPORT_SERVICE_URL || 'not configured',
+      cv: process.env.CV_SERVICE_URL || 'not configured',
+      ai: process.env.AI_SERVICE_URL || 'not configured',
+      payment: process.env.PAYMENT_SERVICE_URL || 'not configured'
     }
   });
 });
 
 // Route handlers
 app.use('/auth/v1', supabaseProxy);
+app.use('/api/export', exportProxy);
+app.use('/api/cv', cvProxy);
+app.use('/api/ai', aiProxy);
+app.use('/api/payment', paymentProxy);
 
 // Handle OPTIONS requests
 app.options('*', cors());
@@ -53,4 +86,8 @@ app.listen(port, () => {
   console.log(`Simplified API Gateway running on port ${port}\n`);
   console.log('Configured Services:');
   console.log(`- Supabase: ${process.env.SUPABASE_URL}`);
+  console.log(`- Export Service: ${process.env.EXPORT_SERVICE_URL || 'not configured'}`);
+  console.log(`- CV Service: ${process.env.CV_SERVICE_URL || 'not configured'}`);
+  console.log(`- AI Service: ${process.env.AI_SERVICE_URL || 'not configured'}`);
+  console.log(`- Payment Service: ${process.env.PAYMENT_SERVICE_URL || 'not configured'}`);
 }); 
