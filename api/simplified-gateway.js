@@ -6,6 +6,9 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Parse JSON bodies
+app.use(express.json());
+
 // CORS configuration
 app.use(cors());
 
@@ -35,7 +38,7 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
 };
 
 // Supabase proxy configuration
-const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '/auth/v1', {
+const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, null, {
   onProxyReq: (proxyReq, req, res) => {
     // Forward necessary Supabase headers
     if (process.env.SUPABASE_ANON_KEY) {
@@ -55,10 +58,61 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
 });
 
 // Service proxies
-const exportProxy = createServiceProxy('Export Service', process.env.EXPORT_SERVICE_URL, '/api/export');
 const cvProxy = createServiceProxy('CV Service', process.env.CV_SERVICE_URL, '/api/cv');
 const aiProxy = createServiceProxy('AI Service', process.env.AI_SERVICE_URL, '/api/ai');
 const paymentProxy = createServiceProxy('Payment Service', process.env.PAYMENT_SERVICE_URL, '/api/payment');
+
+// Export functionality
+app.post('/api/export', async (req, res) => {
+  try {
+    const { format, data } = req.body;
+    
+    if (!format || !data) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Both format and data are required'
+      });
+    }
+
+    // Handle different export formats
+    switch (format.toLowerCase()) {
+      case 'json':
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', 'attachment; filename=export.json');
+        return res.json(data);
+      
+      case 'csv':
+        if (!Array.isArray(data)) {
+          return res.status(400).json({
+            error: 'Invalid data format',
+            message: 'Data must be an array for CSV export'
+          });
+        }
+        
+        const csvContent = data.map(row => 
+          Object.values(row).map(val => 
+            typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
+          ).join(',')
+        ).join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=export.csv');
+        return res.send(csvContent);
+      
+      default:
+        return res.status(400).json({
+          error: 'Unsupported format',
+          message: 'Supported formats are: json, csv'
+        });
+    }
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({
+      error: 'Export failed',
+      message: 'Failed to process export request'
+    });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -67,7 +121,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     services: {
       supabase: process.env.SUPABASE_URL || 'not configured',
-      export: process.env.EXPORT_SERVICE_URL || 'not configured',
+      export: 'memory-resident',
       cv: process.env.CV_SERVICE_URL || 'not configured',
       ai: process.env.AI_SERVICE_URL || 'not configured',
       payment: process.env.PAYMENT_SERVICE_URL || 'not configured'
@@ -77,7 +131,6 @@ app.get('/api/health', (req, res) => {
 
 // Route handlers
 app.use('/auth/v1', supabaseProxy);
-app.use('/api/export', exportProxy);
 app.use('/api/cv', cvProxy);
 app.use('/api/ai', aiProxy);
 app.use('/api/payment', paymentProxy);
@@ -89,7 +142,7 @@ app.listen(port, () => {
   console.log(`Simplified API Gateway running on port ${port}\n`);
   console.log('Configured Services:');
   console.log(`- Supabase: ${process.env.SUPABASE_URL || 'not configured'}`);
-  console.log(`- Export Service: ${process.env.EXPORT_SERVICE_URL || 'not configured'}`);
+  console.log(`- Export Service: memory-resident`);
   console.log(`- CV Service: ${process.env.CV_SERVICE_URL || 'not configured'}`);
   console.log(`- AI Service: ${process.env.AI_SERVICE_URL || 'not configured'}`);
   console.log(`- Payment Service: ${process.env.PAYMENT_SERVICE_URL || 'not configured'}`);
