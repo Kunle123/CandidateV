@@ -39,9 +39,16 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
   };
 
   if (pathPrefix) {
-    config.pathRewrite = {
-      [`^${pathPrefix}`]: '/auth/v1'  // Ensure we're hitting the correct Supabase auth endpoint
-    };
+    // Only rewrite auth paths for Supabase, keep original paths for other services
+    if (serviceName === 'Supabase') {
+      config.pathRewrite = {
+        [`^${pathPrefix}`]: '/auth/v1'
+      };
+    } else {
+      config.pathRewrite = {
+        [`^${pathPrefix}`]: ''
+      };
+    }
   }
 
   return createProxyMiddleware(config);
