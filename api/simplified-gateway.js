@@ -62,7 +62,7 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
       method: req.method,
       path: req.path,
       target: process.env.SUPABASE_URL,
-      headers: proxyReq.getHeaders()
+      headers: req.headers
     });
     // Forward necessary Supabase headers
     if (process.env.SUPABASE_ANON_KEY) {
@@ -138,7 +138,6 @@ app.post('/auth/v1/signup', async (req, res) => {
 
     console.log('Supabase response:', {
       status: response.status,
-      headers: response.headers,
       data: response.data
     });
 
