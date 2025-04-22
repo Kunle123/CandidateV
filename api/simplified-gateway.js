@@ -132,7 +132,15 @@ app.post('/auth/v1/signup', async (req, res) => {
         'apikey': process.env.SUPABASE_ANON_KEY,
         'Accept': 'application/json'
       },
-      data: req.body,
+      data: {
+        ...req.body,
+        // Add email confirmation settings
+        email_confirm: true,
+        data: {
+          ...req.body.data,
+          email_confirmed_at: null
+        }
+      },
       timeout: 30000
     });
 
@@ -151,6 +159,62 @@ app.post('/auth/v1/signup', async (req, res) => {
 
     if (error.response) {
       // Forward Supabase's error response
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      res.status(500).json({
+        error: 'Internal server error',
+        message: error.message
+      });
+    }
+  }
+});
+
+// Email verification endpoint
+app.get('/auth/v1/verify', async (req, res) => {
+  try {
+    const { token, type } = req.query;
+
+    if (!token || type !== 'signup') {
+      return res.status(400).json({
+        error: 'Invalid verification request',
+        message: 'Token and correct type are required'
+      });
+    }
+
+    console.log('Handling email verification:', {
+      token,
+      type,
+      headers: req.headers
+    });
+
+    const response = await axios({
+      method: 'GET',
+      url: `${process.env.SUPABASE_URL}/auth/v1/verify`,
+      headers: {
+        'apikey': process.env.SUPABASE_ANON_KEY,
+        'Accept': 'application/json'
+      },
+      params: {
+        token,
+        type
+      },
+      timeout: 30000
+    });
+
+    console.log('Verification response:', {
+      status: response.status,
+      data: response.data
+    });
+
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Verification error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+
+    if (error.response) {
       res.status(error.response.status).json(error.response.data);
     } else {
       res.status(500).json({
