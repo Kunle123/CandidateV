@@ -55,49 +55,67 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
       method: req.method,
       path: req.path,
       query: req.query,
-      target: process.env.SUPABASE_URL,
-      headers: req.headers
+      target: process.env.SUPABASE_URL
     });
     
     // Forward necessary Supabase headers
     if (process.env.SUPABASE_ANON_KEY) {
       proxyReq.setHeader('apikey', process.env.SUPABASE_ANON_KEY);
-      console.log('Added Supabase API key to request');
+      proxyReq.setHeader('Authorization', `Bearer ${process.env.SUPABASE_ANON_KEY}`);
     }
+    
+    // Forward client headers
     if (req.headers.authorization) {
       proxyReq.setHeader('authorization', req.headers.authorization);
     }
+    if (req.headers['x-client-info']) {
+      proxyReq.setHeader('x-client-info', req.headers['x-client-info']);
+    }
+    
     proxyReq.setHeader('Content-Type', 'application/json');
     proxyReq.setHeader('Accept', 'application/json');
-    proxyReq.setHeader('Connection', 'keep-alive');
   },
   onProxyRes: (proxyRes, req, res) => {
     console.log('Received response from Supabase:', {
       statusCode: proxyRes.statusCode,
-      headers: proxyRes.headers,
-      path: req.path,
-      query: req.query
+      path: req.path
     });
+    
     // Handle CORS headers
     proxyRes.headers['Access-Control-Allow-Origin'] = '*';
     proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
-    proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, apikey';
+    proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, apikey, x-client-info';
+    
+    // Log errors for debugging
+    if (proxyRes.statusCode >= 400) {
+      let body = '';
+      proxyRes.on('data', chunk => body += chunk);
+      proxyRes.on('end', () => {
+        try {
+          const error = JSON.parse(body);
+          console.error('Supabase error response:', {
+            statusCode: proxyRes.statusCode,
+            path: req.path,
+            error
+          });
+        } catch (e) {
+          console.error('Failed to parse error response:', body);
+        }
+      });
+    }
   },
   onError: (err, req, res) => {
     console.error('Proxy error:', {
       error: err.message,
       code: err.code,
-      stack: err.stack,
       path: req.path,
-      method: req.method,
-      query: req.query
+      method: req.method
     });
     
-    // Handle specific error types
-    if (err.code === 'ECONNRESET') {
+    if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') {
       return res.status(502).json({
-        error: 'Connection reset',
-        message: 'The connection to the authentication service was reset. Please try again.',
+        error: 'Connection error',
+        message: 'Failed to connect to authentication service. Please try again.',
         code: err.code
       });
     }
@@ -110,111 +128,170 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
   }
 });
 
-// Service proxies
-const cvProxy = createServiceProxy('CV Service', process.env.CV_SERVICE_URL, '/api/cv');
-const aiProxy = createServiceProxy('AI Service', process.env.AI_SERVICE_URL, '/api/ai');
-const paymentProxy = createServiceProxy('Payment Service', process.env.PAYMENT_SERVICE_URL, '/api/payment');
+// CV service proxy configuration
+const cvProxy = createServiceProxy('CV Service', process.env.CV_SERVICE_URL, '/api/cv', {
+  onProxyReq: (proxyReq, req, res) => {
+    console.log('Proxying request to CV Service:', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      target: process.env.CV_SERVICE_URL
+    });
+    
+    // Forward authorization header
+    if (req.headers.authorization) {
+      proxyReq.setHeader('authorization', req.headers.authorization);
+    }
+    
+    proxyReq.setHeader('Content-Type', 'application/json');
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log('Received response from CV Service:', {
+      statusCode: proxyRes.statusCode,
+      path: req.path
+    });
+    
+    // Handle CORS headers
+    proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+    proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
+    proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+  },
+  onError: (err, req, res) => {
+    console.error('CV Service proxy error:', {
+      error: err.message,
+      code: err.code,
+      path: req.path,
+      method: req.method
+    });
+    
+    if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') {
+      return res.status(502).json({
+        error: 'Connection error',
+        message: 'Failed to connect to CV service. Please try again.',
+        code: err.code
+      });
+    }
+    
+    res.status(500).json({
+      error: 'Proxy error',
+      message: err.message,
+      code: err.code
+    });
+  }
+});
 
-// Supabase auth handler for signup only
-app.post('/auth/v1/signup', async (req, res) => {
+// Route handlers - Note: Order matters!
+// Specific auth endpoints first
+app.get('/auth/v1/session', async (req, res) => {
   try {
-    console.log('Handling signup request:', {
-      body: req.body,
+    console.log('Handling session request:', {
       headers: req.headers
     });
 
-    const response = await axios({
-      method: 'POST',
-      url: `${process.env.SUPABASE_URL}/auth/v1/signup`,
+    const response = await axios.get(`${process.env.SUPABASE_URL}/auth/v1/user`, {
       headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_ANON_KEY,
-        'Accept': 'application/json'
-      },
-      data: {
-        ...req.body,
-        email_confirm: true,
-        data: {
-          ...req.body.data,
-          email_confirmed_at: null
-        }
-      },
-      timeout: 30000
+        'Authorization': req.headers.authorization || `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+        'apikey': process.env.SUPABASE_ANON_KEY
+      }
     });
 
-    console.log('Supabase response:', {
+    console.log('Session response:', {
+      status: response.status
+    });
+
+    return res.status(200).json({
+      data: {
+        session: {
+          access_token: req.headers.authorization?.split(' ')[1],
+          user: response.data
+        }
+      },
+      error: null
+    });
+  } catch (error) {
+    console.error('Session error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+
+    if (error.response?.status === 401) {
+      return res.status(200).json({
+        data: { session: null },
+        error: null
+      });
+    }
+
+    return res.status(error.response?.status || 500).json({
+      error: error.response?.data || {
+        message: 'Internal server error during session check'
+      }
+    });
+  }
+});
+
+app.post('/auth/v1/signup', async (req, res) => {
+  try {
+    console.log('Received signup request:', {
+      email: req.body.email,
+      hasPassword: !!req.body.password,
+      data: req.body.data
+    });
+
+    // Log environment variables (redacted)
+    console.log('Environment check:', {
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+      hasAnonKey: !!process.env.SUPABASE_ANON_KEY,
+      supabaseUrlLength: process.env.SUPABASE_URL?.length,
+      anonKeyLength: process.env.SUPABASE_ANON_KEY?.length
+    });
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+    };
+
+    console.log('Request headers:', {
+      contentType: headers['Content-Type'],
+      hasApiKey: !!headers.apikey,
+      hasAuthorization: !!headers.Authorization,
+      apiKeyLength: headers.apikey?.length
+    });
+
+    const response = await axios.post(
+      `${process.env.SUPABASE_URL}/auth/v1/signup`,
+      {
+        ...req.body,
+        email_confirm: true,
+        gotrue_meta_security: {
+          captcha_token: req.body.captcha_token
+        }
+      },
+      { headers }
+    );
+
+    console.log('Supabase signup response:', {
       status: response.status,
       data: response.data
     });
 
-    res.status(response.status).json(response.data);
+    return res.status(response.status).json(response.data);
   } catch (error) {
-    console.error('Supabase error:', {
+    console.error('Signup error:', {
+      status: error.response?.status,
+      data: error.response?.data,
       message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
+      stack: error.stack
     });
 
     if (error.response) {
-      // Forward Supabase's error response
-      res.status(error.response.status).json(error.response.data);
-    } else {
-      res.status(500).json({
-        error: 'Internal server error',
-        message: error.message
-      });
-    }
-  }
-});
-
-// Export functionality
-app.post('/api/export', async (req, res) => {
-  try {
-    const { format, data } = req.body;
-    
-    if (!format || !data) {
-      return res.status(400).json({
-        error: 'Missing required fields',
-        message: 'Both format and data are required'
-      });
+      return res.status(error.response.status).json(error.response.data);
     }
 
-    // Handle different export formats
-    switch (format.toLowerCase()) {
-      case 'json':
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Content-Disposition', 'attachment; filename=export.json');
-        return res.json(data);
-      
-      case 'csv':
-        if (!Array.isArray(data)) {
-          return res.status(400).json({
-            error: 'Invalid data format',
-            message: 'Data must be an array for CSV export'
-          });
-        }
-        
-        const csvContent = data.map(row => 
-          Object.values(row).map(val => 
-            typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
-          ).join(',')
-        ).join('\n');
-        
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', 'attachment; filename=export.csv');
-        return res.send(csvContent);
-      
-      default:
-        return res.status(400).json({
-          error: 'Unsupported format',
-          message: 'Supported formats are: json, csv'
-        });
-    }
-  } catch (error) {
-    console.error('Export error:', error);
-    res.status(500).json({
-      error: 'Export failed',
-      message: 'Failed to process export request'
+    return res.status(500).json({
+      error: 'Internal server error during signup',
+      message: error.message
     });
   }
 });
@@ -234,7 +311,54 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Route handlers - Note: auth/v1 proxy will handle verification
+// Then service-specific routes
+app.get('/api/cv', async (req, res) => {
+  try {
+    console.log('Handling CV request:', {
+      headers: req.headers,
+      query: req.query
+    });
+
+    if (!req.headers.authorization) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'No authorization token provided'
+      });
+    }
+
+    // Forward request to CV service
+    const response = await axios.get(`${process.env.CV_SERVICE_URL}/api/cv`, {
+      headers: {
+        'Authorization': req.headers.authorization,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('CV Service direct response:', {
+      status: response.status,
+      headers: response.headers
+    });
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('CV Service direct error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to fetch CV data'
+    });
+  }
+});
+
+// Finally, the catch-all proxy routes
 app.use('/auth/v1', supabaseProxy);
 app.use('/api/cv', cvProxy);
 app.use('/api/ai', aiProxy);
