@@ -12,9 +12,7 @@ export const AuthProvider = ({ children }) => {
     // Check active sessions and sets the user
     const getSession = async () => {
       try {
-        const { data: { session }, error: sessionError } = await authHelper.auth.getSession()
-        if (sessionError) throw sessionError
-        
+        const { session } = await authHelper.getSession()
         if (session) {
           const { user: sessionUser } = session
           setUser(sessionUser)

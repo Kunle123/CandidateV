@@ -86,6 +86,12 @@ export const authHelper = {
     return user
   },
 
+  async getSession() {
+    const { data, error } = await supabase.auth.getSession()
+    if (error) throw error
+    return data
+  },
+
   async resetPassword(email) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`
