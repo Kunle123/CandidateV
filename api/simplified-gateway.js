@@ -62,7 +62,10 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
     // Forward necessary Supabase headers
     if (process.env.SUPABASE_ANON_KEY) {
       proxyReq.setHeader('apikey', process.env.SUPABASE_ANON_KEY);
-      proxyReq.setHeader('Authorization', `Bearer ${process.env.SUPABASE_ANON_KEY}`);
+      // Only set Authorization header if not already present in request
+      if (!req.headers.authorization) {
+        proxyReq.setHeader('Authorization', `Bearer ${process.env.SUPABASE_ANON_KEY}`);
+      }
     }
     
     // Forward client headers
@@ -75,11 +78,17 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
     
     proxyReq.setHeader('Content-Type', 'application/json');
     proxyReq.setHeader('Accept', 'application/json');
+
+    // Log request body for debugging
+    if (req.body) {
+      console.log('Request body:', req.body);
+    }
   },
   onProxyRes: (proxyRes, req, res) => {
     console.log('Received response from Supabase:', {
       statusCode: proxyRes.statusCode,
-      path: req.path
+      path: req.path,
+      headers: proxyRes.headers
     });
     
     // Handle CORS headers
@@ -87,7 +96,7 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
     proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
     proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, apikey, x-client-info';
     
-    // Log errors for debugging
+    // Log response body for debugging
     if (proxyRes.statusCode >= 400) {
       let body = '';
       proxyRes.on('data', chunk => body += chunk);
@@ -97,7 +106,8 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
           console.error('Supabase error response:', {
             statusCode: proxyRes.statusCode,
             path: req.path,
-            error
+            error,
+            headers: proxyRes.headers
           });
         } catch (e) {
           console.error('Failed to parse error response:', body);
