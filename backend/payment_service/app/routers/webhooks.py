@@ -8,6 +8,8 @@ import json
 import httpx
 import asyncio
 from app.config import settings
+from supabase import create_client, Client
+from datetime import datetime
 
 # Configure logger
 logger = logging.getLogger("payment_service")
@@ -21,6 +23,12 @@ STRIPE_WEBHOOK_SECRET = settings.STRIPE_WEBHOOK_SECRET
 
 # Initialize Stripe
 stripe.api_key = STRIPE_API_KEY
+
+# Initialize Supabase client
+supabase: Client = create_client(
+    settings.SUPABASE_URL,
+    settings.SUPABASE_KEY
+)
 
 class WebhookResponse(BaseModel):
     status: str

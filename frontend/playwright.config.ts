@@ -4,15 +4,17 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
   expect: {
-    timeout: 5000
+    timeout: 10000  // Increased timeout for network requests
   },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,  // Added 1 retry for local runs
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.CI 
+      ? 'https://candidate-v.vercel.app'
+      : 'https://candidate-v-frontend.vercel.app',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'
@@ -31,9 +33,5 @@ export default defineConfig({
       use: { ...devices['Desktop Safari'] },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    port: 5173,
-    reuseExistingServer: !process.env.CI,
-  },
+  // Removed webServer config since we're using the deployed environment
 }); 

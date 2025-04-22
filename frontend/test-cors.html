@@ -37,131 +37,43 @@
     </style>
 </head>
 <body>
-    <h1>CORS Test for CandidateV</h1>
-    <p>This page tests CORS configuration by making requests directly to services.</p>
-    
-    <div>
-        <h2>Auth Service Test</h2>
-        <button id="testAuth">Test Auth Service CORS</button>
-        <button id="testAuthHealth">Test Auth Health Endpoint</button>
-    </div>
-    
-    <div>
-        <h2>API Gateway Test</h2>
-        <button id="testGateway">Test API Gateway CORS</button>
-        <button id="testGatewayHealth">Test Gateway Health Endpoint</button>
-    </div>
-    
-    <div id="result">
-        <p>Results will appear here...</p>
-    </div>
-    
+    <h1>CORS Test</h1>
+    <button onclick="testCORS()">Test CORS</button>
+    <button onclick="testHealth()">Test Health</button>
+    <pre id="result"></pre>
+
     <script>
-        const resultDiv = document.getElementById('result');
-        
-        // Auth Service Test
-        document.getElementById('testAuth').addEventListener('click', async () => {
+        async function testCORS() {
+            const result = document.getElementById('result');
             try {
-                resultDiv.innerHTML = '<p>Testing auth service CORS endpoint...</p>';
-                
-                const response = await fetch('https://candidatev-auth-service.up.railway.app/api/cors-test', {
+                const response = await fetch('https://aqmybjkzxfwiizorveco.supabase.co/auth/v1/health', {
                     method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'apikey': 'your-anon-key-here'
                     }
                 });
-                
                 const data = await response.json();
-                
-                resultDiv.innerHTML = `
-                    <p class="success">✅ CORS Test Successful!</p>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
-                `;
+                result.textContent = JSON.stringify(data, null, 2);
             } catch (error) {
-                resultDiv.innerHTML = `
-                    <p class="error">❌ Error Testing Auth Service CORS</p>
-                    <pre>${error.message}</pre>
-                `;
+                result.textContent = 'Error: ' + error.message;
             }
-        });
-        
-        // Auth Health Test
-        document.getElementById('testAuthHealth').addEventListener('click', async () => {
+        }
+
+        async function testHealth() {
+            const result = document.getElementById('result');
             try {
-                resultDiv.innerHTML = '<p>Testing auth service health endpoint...</p>';
-                
-                const response = await fetch('https://candidatev-auth-service.up.railway.app/api/health', {
+                const response = await fetch('https://aqmybjkzxfwiizorveco.supabase.co/rest/v1/', {
                     method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'apikey': 'your-anon-key-here'
                     }
                 });
-                
                 const data = await response.json();
-                
-                resultDiv.innerHTML = `
-                    <p class="success">✅ Health Check Successful!</p>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
-                `;
+                result.textContent = JSON.stringify(data, null, 2);
             } catch (error) {
-                resultDiv.innerHTML = `
-                    <p class="error">❌ Error Testing Auth Service Health</p>
-                    <pre>${error.message}</pre>
-                `;
+                result.textContent = 'Error: ' + error.message;
             }
-        });
-        
-        // API Gateway Test
-        document.getElementById('testGateway').addEventListener('click', async () => {
-            try {
-                resultDiv.innerHTML = '<p>Testing API Gateway CORS...</p>';
-                
-                const response = await fetch('https://api-gw-production.up.railway.app/api/gateway-status', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const data = await response.json();
-                
-                resultDiv.innerHTML = `
-                    <p class="success">✅ API Gateway CORS Test Successful!</p>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
-                `;
-            } catch (error) {
-                resultDiv.innerHTML = `
-                    <p class="error">❌ Error Testing API Gateway CORS</p>
-                    <pre>${error.message}</pre>
-                `;
-            }
-        });
-        
-        // Gateway Health Test
-        document.getElementById('testGatewayHealth').addEventListener('click', async () => {
-            try {
-                resultDiv.innerHTML = '<p>Testing API Gateway health endpoint...</p>';
-                
-                const response = await fetch('https://api-gw-production.up.railway.app/api/health', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const data = await response.json();
-                
-                resultDiv.innerHTML = `
-                    <p class="success">✅ API Gateway Health Check Successful!</p>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
-                `;
-            } catch (error) {
-                resultDiv.innerHTML = `
-                    <p class="error">❌ Error Testing API Gateway Health</p>
-                    <pre>${error.message}</pre>
-                `;
-            }
-        });
+        }
     </script>
 </body>
 </html> 
