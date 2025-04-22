@@ -5,14 +5,12 @@
   },
   "deploy": {
     "numReplicas": 1,
-    "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 10,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5,
     "headers": [
       {
         "key": "Access-Control-Allow-Origin",
-        "value": "https://candidate-v.vercel.app, https://candidate-oyfl01pgt-kunle-ibiduns-projects.vercel.app"
+        "value": "https://candidate-v-frontend.vercel.app, https://candidate-v.vercel.app, https://candidate-oyfl01pgt-kunle-ibiduns-projects.vercel.app"
       },
       {
         "key": "Access-Control-Allow-Methods",
@@ -20,7 +18,7 @@
       },
       {
         "key": "Access-Control-Allow-Headers",
-        "value": "Content-Type, Authorization, X-Requested-With"
+        "value": "Content-Type, Authorization, X-Requested-With, apikey"
       },
       {
         "key": "Access-Control-Allow-Credentials",
