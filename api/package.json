@@ -1,30 +1,22 @@
 {
-  "name": "candidatev-api-gateway",
+  "name": "api-gateway",
   "version": "1.0.0",
-  "description": "API Gateway for CandidateV application",
-  "main": "index.js",
+  "description": "API Gateway for CandidateV",
+  "main": "simplified-gateway.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "jest"
+    "start": "node simplified-gateway.js",
+    "dev": "nodemon simplified-gateway.js"
   },
   "dependencies": {
-    "axios": "^1.8.4",
+    "axios": "^1.6.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "express": "^4.21.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
     "helmet": "^7.1.0",
-    "http-proxy-middleware": "^2.0.9",
-    "morgan": "^1.10.0",
-    "uuid": "^9.0.1",
-    "winston": "^3.11.0"
+    "http-proxy-middleware": "^2.0.6",
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "nodemon": "^3.0.2",
-    "supertest": "^6.3.3"
-  },
-  "engines": {
-    "node": ">=16.0.0"
+    "nodemon": "^3.1.0"
   }
 }
