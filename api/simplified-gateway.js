@@ -433,6 +433,154 @@ app.post('/auth/v1/signup', async (req, res) => {
   }
 });
 
+app.post('/auth/v1/token', async (req, res) => {
+  try {
+    console.log('Handling token request:', {
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'x-client-info': req.headers['x-client-info']
+      }
+    });
+
+    const response = await axios.post(
+      `${process.env.SUPABASE_URL}/auth/v1/token`,
+      req.body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+        }
+      }
+    );
+
+    console.log('Token response:', {
+      status: response.status,
+      hasData: !!response.data,
+      data: response.data
+    });
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Token error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      body: req.body
+    });
+
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+
+    return res.status(500).json({
+      error: 'Internal server error during token request',
+      message: error.message
+    });
+  }
+});
+
+app.post('/auth/v1/sign-in', async (req, res) => {
+  try {
+    console.log('Handling sign-in request:', {
+      method: req.method,
+      path: req.path,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'x-client-info': req.headers['x-client-info']
+      }
+    });
+
+    const response = await axios.post(
+      `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      req.body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+        }
+      }
+    );
+
+    console.log('Sign-in response:', {
+      status: response.status,
+      hasData: !!response.data
+    });
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Sign-in error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+
+    return res.status(500).json({
+      error: 'Internal server error during sign-in',
+      message: error.message
+    });
+  }
+});
+
+// Add the signInWithPassword endpoint that Supabase expects
+app.post('/auth/v1/sign-in-with-password', async (req, res) => {
+  try {
+    console.log('Handling sign-in-with-password request:', {
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'x-client-info': req.headers['x-client-info']
+      }
+    });
+
+    const response = await axios.post(
+      `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      req.body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+        }
+      }
+    );
+
+    console.log('Sign-in response:', {
+      status: response.status,
+      hasData: !!response.data,
+      data: response.data
+    });
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Sign-in error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      body: req.body
+    });
+
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+
+    return res.status(500).json({
+      error: 'Internal server error during sign-in',
+      message: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
