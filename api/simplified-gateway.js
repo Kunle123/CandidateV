@@ -39,10 +39,13 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
 
 // Supabase proxy configuration
 const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, null, {
+  timeout: 30000, // 30 seconds timeout
+  proxyTimeout: 31000, // slightly longer than timeout
   onProxyReq: (proxyReq, req, res) => {
     console.log('Proxying request to Supabase:', {
       method: req.method,
       path: req.path,
+      target: process.env.SUPABASE_URL,
       headers: req.headers
     });
     // Forward necessary Supabase headers
@@ -66,10 +69,15 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, n
     proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, apikey';
   },
   onError: (err, req, res) => {
-    console.error('Proxy error:', err);
+    console.error('Proxy error:', {
+      error: err.message,
+      code: err.code,
+      stack: err.stack
+    });
     res.status(500).json({
       error: 'Proxy error',
-      message: err.message
+      message: err.message,
+      code: err.code
     });
   }
 });
