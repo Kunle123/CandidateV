@@ -37,7 +37,7 @@ const options = {
 }
 
 // Create Supabase client with API gateway URL
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const supabase = createClient('https://aqmybjkzxfwiizorveco.supabase.co', supabaseAnonKey, {
   ...options,
   endpoint: {
     auth: 'https://api-gw-production.up.railway.app/auth/v1'
@@ -71,21 +71,34 @@ export const authHelper = {
   },
 
   async signInWithPassword({ email, password }) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-      options: {
-        persistSession: true
+    console.log('Starting login attempt...');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: {
+          persistSession: true
+        }
+      })
+      
+      console.log('Login response:', { data, error });
+      
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
       }
-    })
-    
-    if (error) throw error
 
-    if (!data?.session) {
-      throw new Error('No session data returned from login')
+      if (!data?.session) {
+        console.error('No session in response:', data);
+        throw new Error('No session data returned from login');
+      }
+
+      console.log('Login successful, session:', data.session);
+      return { data, error };
+    } catch (error) {
+      console.error('Login caught error:', error);
+      throw error;
     }
-
-    return { data, error }
   },
 
   async signOut() {
