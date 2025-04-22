@@ -40,9 +40,15 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
 // Supabase proxy configuration
 const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, null, {
   onProxyReq: (proxyReq, req, res) => {
+    console.log('Proxying request to Supabase:', {
+      method: req.method,
+      path: req.path,
+      headers: req.headers
+    });
     // Forward necessary Supabase headers
     if (process.env.SUPABASE_ANON_KEY) {
       proxyReq.setHeader('apikey', process.env.SUPABASE_ANON_KEY);
+      console.log('Added Supabase API key to request');
     }
     if (req.headers.authorization) {
       proxyReq.setHeader('authorization', req.headers.authorization);
@@ -50,10 +56,21 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, n
     proxyReq.setHeader('Content-Type', 'application/json');
   },
   onProxyRes: (proxyRes, req, res) => {
+    console.log('Received response from Supabase:', {
+      statusCode: proxyRes.statusCode,
+      headers: proxyRes.headers
+    });
     // Handle CORS headers
     proxyRes.headers['Access-Control-Allow-Origin'] = '*';
     proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
     proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, apikey';
+  },
+  onError: (err, req, res) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({
+      error: 'Proxy error',
+      message: err.message
+    });
   }
 });
 
