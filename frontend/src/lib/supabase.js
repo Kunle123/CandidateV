@@ -42,6 +42,9 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
+// Export the Supabase instance
+export { supabase }
+
 // Export direct auth access
 export const auth = supabase.auth
 
