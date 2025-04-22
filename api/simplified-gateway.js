@@ -28,12 +28,19 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
     changeOrigin: true,
     secure: true,
     xfwd: true,
-    ws: true
+    ws: true,
+    timeout: 30000,
+    proxyTimeout: 31000,
+    followRedirects: true,
+    retries: 3,
+    headers: {
+      'Connection': 'keep-alive'
+    }
   };
 
   if (pathPrefix) {
     config.pathRewrite = {
-      [`^${pathPrefix}`]: ''
+      [`^${pathPrefix}`]: '/auth/v1'  // Ensure we're hitting the correct Supabase auth endpoint
     };
   }
 
@@ -42,14 +49,12 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
 
 // Supabase proxy configuration
 const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '/auth/v1', {
-  timeout: 30000, // 30 seconds timeout
-  proxyTimeout: 31000, // slightly longer than timeout
   onProxyReq: (proxyReq, req, res) => {
     console.log('Proxying request to Supabase:', {
       method: req.method,
       path: req.path,
       target: process.env.SUPABASE_URL,
-      headers: req.headers
+      headers: proxyReq.getHeaders()
     });
     // Forward necessary Supabase headers
     if (process.env.SUPABASE_ANON_KEY) {
@@ -60,6 +65,7 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
       proxyReq.setHeader('authorization', req.headers.authorization);
     }
     proxyReq.setHeader('Content-Type', 'application/json');
+    proxyReq.setHeader('Connection', 'keep-alive');
   },
   onProxyRes: (proxyRes, req, res) => {
     console.log('Received response from Supabase:', {
@@ -75,8 +81,20 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
     console.error('Proxy error:', {
       error: err.message,
       code: err.code,
-      stack: err.stack
+      stack: err.stack,
+      path: req.path,
+      method: req.method
     });
+    
+    // Handle specific error types
+    if (err.code === 'ECONNRESET') {
+      return res.status(502).json({
+        error: 'Connection reset',
+        message: 'The connection to the authentication service was reset. Please try again.',
+        code: err.code
+      });
+    }
+    
     res.status(500).json({
       error: 'Proxy error',
       message: err.message,
