@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
@@ -114,6 +115,52 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
 const cvProxy = createServiceProxy('CV Service', process.env.CV_SERVICE_URL, '/api/cv');
 const aiProxy = createServiceProxy('AI Service', process.env.AI_SERVICE_URL, '/api/ai');
 const paymentProxy = createServiceProxy('Payment Service', process.env.PAYMENT_SERVICE_URL, '/api/payment');
+
+// Supabase auth handler
+app.post('/auth/v1/signup', async (req, res) => {
+  try {
+    console.log('Handling signup request:', {
+      body: req.body,
+      headers: req.headers
+    });
+
+    const response = await axios({
+      method: 'POST',
+      url: `${process.env.SUPABASE_URL}/auth/v1/signup`,
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_ANON_KEY,
+        'Accept': 'application/json'
+      },
+      data: req.body,
+      timeout: 30000
+    });
+
+    console.log('Supabase response:', {
+      status: response.status,
+      headers: response.headers,
+      data: response.data
+    });
+
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Supabase error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+
+    if (error.response) {
+      // Forward Supabase's error response
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      res.status(500).json({
+        error: 'Internal server error',
+        message: error.message
+      });
+    }
+  }
+});
 
 // Export functionality
 app.post('/api/export', async (req, res) => {
