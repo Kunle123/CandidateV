@@ -10,19 +10,18 @@ const PORT = process.env.PORT || 3000;
 
 // Environment variables with explicit defaults
 const SERVICE_URLS = {
-  auth: process.env.AUTH_SERVICE_URL || 'https://candidatev-auth-service.up.railway.app',
-  user: process.env.USER_SERVICE_URL || 'https://candidatev-user-service.up.railway.app',
   cv: process.env.CV_SERVICE_URL || 'https://candidatev-cv-service.up.railway.app',
   export: process.env.EXPORT_SERVICE_URL || 'https://candidatev-export-service.up.railway.app',
   ai: process.env.AI_SERVICE_URL || 'https://candidatev-ai-service.up.railway.app',
-  payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app'
+  payment: process.env.PAYMENT_SERVICE_URL || 'https://candidatev-payment-service.up.railway.app',
+  supabase: process.env.SUPABASE_URL || 'https://aqmybjkzxfwiizorveco.supabase.co'
 };
 
 // CORS configuration
 const corsOptions = {
   origin: ['https://candidate-v.vercel.app', 'https://candidate-v-frontend.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'apikey'],
   credentials: true,
   maxAge: 86400 // 24 hours
 };
@@ -43,7 +42,7 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', origin);
   }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, apikey');
   res.header('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -82,9 +81,19 @@ const createProxy = (serviceName, targetUrl) => {
     onProxyReq: (proxyReq, req, res) => {
       // Log proxy requests for debugging
       console.log(`Proxying ${req.method} request to ${serviceName}: ${req.path}`);
+      
+      // For Supabase requests, ensure all required headers are forwarded
+      if (serviceName === 'supabase') {
+        if (req.headers.apikey) {
+          proxyReq.setHeader('apikey', req.headers.apikey);
+        }
+        if (req.headers.authorization) {
+          proxyReq.setHeader('authorization', req.headers.authorization);
+        }
+        proxyReq.setHeader('Content-Type', 'application/json');
+      }
     },
     pathRewrite: (path, req) => {
-      // For OPTIONS requests, return null to prevent proxying
       if (req.method === 'OPTIONS') {
         return null;
       }
@@ -93,14 +102,13 @@ const createProxy = (serviceName, targetUrl) => {
     onError: (err, req, res) => {
       console.error(`Proxy error for ${serviceName}: ${err.message}`);
       
-      // For OPTIONS requests, handle directly
       if (req.method === 'OPTIONS') {
         const origin = req.headers.origin;
         if (corsOptions.origin.includes(origin)) {
           res.header('Access-Control-Allow-Origin', origin);
         }
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, apikey');
         res.header('Access-Control-Allow-Credentials', 'true');
         res.header('Access-Control-Max-Age', '86400');
         res.status(200).end();
@@ -118,8 +126,11 @@ const createProxy = (serviceName, targetUrl) => {
 };
 
 // Set up service routes
-app.use('/api/auth', createProxy('auth', SERVICE_URLS.auth));
-app.use('/api/users', createProxy('user', SERVICE_URLS.user));
+// Supabase routes
+app.use('/auth/v1', createProxy('supabase', `${SERVICE_URLS.supabase}/auth/v1`));
+app.use('/rest/v1', createProxy('supabase', `${SERVICE_URLS.supabase}/rest/v1`));
+
+// Service routes
 app.use('/api/cv', createProxy('cv', SERVICE_URLS.cv));
 app.use('/api/export', createProxy('export', SERVICE_URLS.export));
 app.use('/api/ai', createProxy('ai', SERVICE_URLS.ai));
