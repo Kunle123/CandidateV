@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 
 // Helper function to create proxy middleware with fallback
-const createServiceProxy = (serviceName, envUrl, pathPrefix) => {
+const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
   if (!envUrl) {
     console.warn(`Warning: ${serviceName} URL not configured`);
     return (req, res) => res.status(503).json({ 
@@ -19,25 +19,28 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix) => {
     });
   }
   
-  return createProxyMiddleware({
-    target: envUrl,
-    changeOrigin: true,
-    pathRewrite: {
+  const config = {
+    ...options,  // spread options first
+    target: envUrl,  // then override with required values
+    changeOrigin: true
+  };
+
+  if (pathPrefix) {
+    config.pathRewrite = {
       [`^${pathPrefix}`]: ''
-    }
-  });
+    };
+  }
+
+  return createProxyMiddleware(config);
 };
 
 // Supabase proxy configuration
-const supabaseProxy = createProxyMiddleware({
-  target: process.env.SUPABASE_URL,
-  changeOrigin: true,
-  pathRewrite: {
-    '^/auth/v1': '/auth/v1'
-  },
+const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '/auth/v1', {
   onProxyReq: (proxyReq, req, res) => {
     // Forward necessary Supabase headers
-    proxyReq.setHeader('apikey', process.env.SUPABASE_ANON_KEY);
+    if (process.env.SUPABASE_ANON_KEY) {
+      proxyReq.setHeader('apikey', process.env.SUPABASE_ANON_KEY);
+    }
     if (req.headers.authorization) {
       proxyReq.setHeader('authorization', req.headers.authorization);
     }
@@ -63,7 +66,7 @@ app.get('/api/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
-      supabase: process.env.SUPABASE_URL,
+      supabase: process.env.SUPABASE_URL || 'not configured',
       export: process.env.EXPORT_SERVICE_URL || 'not configured',
       cv: process.env.CV_SERVICE_URL || 'not configured',
       ai: process.env.AI_SERVICE_URL || 'not configured',
@@ -85,7 +88,7 @@ app.options('*', cors());
 app.listen(port, () => {
   console.log(`Simplified API Gateway running on port ${port}\n`);
   console.log('Configured Services:');
-  console.log(`- Supabase: ${process.env.SUPABASE_URL}`);
+  console.log(`- Supabase: ${process.env.SUPABASE_URL || 'not configured'}`);
   console.log(`- Export Service: ${process.env.EXPORT_SERVICE_URL || 'not configured'}`);
   console.log(`- CV Service: ${process.env.CV_SERVICE_URL || 'not configured'}`);
   console.log(`- AI Service: ${process.env.AI_SERVICE_URL || 'not configured'}`);
