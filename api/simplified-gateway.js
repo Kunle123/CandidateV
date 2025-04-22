@@ -79,6 +79,14 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
     proxyReq.setHeader('Content-Type', 'application/json');
     proxyReq.setHeader('Accept', 'application/json');
 
+    // Special handling for token endpoint
+    if (req.path.endsWith('/token')) {
+      console.log('Token request detected:', {
+        headers: proxyReq.getHeaders(),
+        body: req.body
+      });
+    }
+
     // Log request body for debugging
     if (req.body) {
       console.log('Request body:', req.body);
@@ -95,6 +103,23 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
     proxyRes.headers['Access-Control-Allow-Origin'] = '*';
     proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,HEAD,PUT,PATCH,POST,DELETE';
     proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, apikey, x-client-info';
+    
+    // Special handling for token endpoint responses
+    if (req.path.endsWith('/token')) {
+      let body = '';
+      proxyRes.on('data', chunk => body += chunk);
+      proxyRes.on('end', () => {
+        try {
+          const response = JSON.parse(body);
+          console.log('Token response:', {
+            statusCode: proxyRes.statusCode,
+            response
+          });
+        } catch (e) {
+          console.error('Failed to parse token response:', body);
+        }
+      });
+    }
     
     // Log response body for debugging
     if (proxyRes.statusCode >= 400) {
