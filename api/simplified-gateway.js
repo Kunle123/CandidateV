@@ -293,9 +293,20 @@ app.get('/auth/v1/session', async (req, res) => {
       headers: req.headers
     });
 
+    // Extract the JWT token from Authorization header
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(200).json({
+        data: { session: null },
+        error: null
+      });
+    }
+
+    // Get user data from Supabase
     const response = await axios.get(`${process.env.SUPABASE_URL}/auth/v1/user`, {
       headers: {
-        'Authorization': req.headers.authorization || `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+        'Authorization': `Bearer ${token}`,
         'apikey': process.env.SUPABASE_ANON_KEY
       }
     });
@@ -304,11 +315,22 @@ app.get('/auth/v1/session', async (req, res) => {
       status: response.status
     });
 
+    // Calculate token expiry (1 hour from now)
+    const expiresIn = 3600;
+    const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
+
+    // Format response to match Supabase session format
     return res.status(200).json({
       data: {
         session: {
-          access_token: req.headers.authorization?.split(' ')[1],
-          user: response.data
+          access_token: token,
+          token_type: 'bearer',
+          expires_in: expiresIn,
+          expires_at: expiresAt,
+          refresh_token: null,
+          user: response.data,
+          provider_token: null,
+          provider_refresh_token: null
         }
       },
       error: null
