@@ -10,7 +10,7 @@ const environment = process.env.NODE_ENV || 'development';
 // Base URLs for different environments
 const BASE_URLS = {
   development: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
-  production: '/api', // Use relative path for same-origin requests in production
+  production: import.meta.env.VITE_API_BASE_URL || 'https://api-gw-production.up.railway.app',
   test: 'http://localhost:3000/api'
 };
 

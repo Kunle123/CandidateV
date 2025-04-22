@@ -21,14 +21,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-// Create a single Supabase client instance for the entire application
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const options = {
   auth: {
-    persistSession: true,
-    storageKey: 'candidatev-auth-token',
-    storage: window.localStorage,
     autoRefreshToken: true,
+    persistSession: true,
     detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'x-my-custom-header': 'CandidateV'
+    }
+  }
+}
+
+// Create Supabase client with API gateway URL
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  ...options,
+  endpoint: {
+    auth: 'https://api-gw-production.up.railway.app/auth/v1'
   }
 })
 
