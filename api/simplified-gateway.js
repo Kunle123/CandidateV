@@ -25,7 +25,10 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
   const config = {
     ...options,  // spread options first
     target: envUrl,  // then override with required values
-    changeOrigin: true
+    changeOrigin: true,
+    secure: true,
+    xfwd: true,
+    ws: true
   };
 
   if (pathPrefix) {
@@ -38,7 +41,7 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
 };
 
 // Supabase proxy configuration
-const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, null, {
+const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '/auth/v1', {
   timeout: 30000, // 30 seconds timeout
   proxyTimeout: 31000, // slightly longer than timeout
   onProxyReq: (proxyReq, req, res) => {
