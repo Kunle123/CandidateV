@@ -39,9 +39,10 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
     }
   };
 
+  // Only rewrite paths for Supabase, keep original paths for other services
   if (pathPrefix) {
     config.pathRewrite = {
-      [`^${pathPrefix}`]: '/auth/v1'
+      [`^${pathPrefix}`]: serviceName === 'Supabase' ? '/auth/v1' : ''
     };
   }
 
