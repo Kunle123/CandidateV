@@ -40,16 +40,9 @@ const createServiceProxy = (serviceName, envUrl, pathPrefix, options = {}) => {
   };
 
   if (pathPrefix) {
-    // Only rewrite auth paths for Supabase, keep original paths for other services
-    if (serviceName === 'Supabase') {
-      config.pathRewrite = {
-        [`^${pathPrefix}`]: '/auth/v1'
-      };
-    } else {
-      config.pathRewrite = {
-        [`^${pathPrefix}`]: ''
-      };
-    }
+    config.pathRewrite = {
+      [`^${pathPrefix}`]: '/auth/v1'
+    };
   }
 
   return createProxyMiddleware(config);
@@ -61,9 +54,11 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
     console.log('Proxying request to Supabase:', {
       method: req.method,
       path: req.path,
+      query: req.query,
       target: process.env.SUPABASE_URL,
       headers: req.headers
     });
+    
     // Forward necessary Supabase headers
     if (process.env.SUPABASE_ANON_KEY) {
       proxyReq.setHeader('apikey', process.env.SUPABASE_ANON_KEY);
@@ -73,12 +68,15 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
       proxyReq.setHeader('authorization', req.headers.authorization);
     }
     proxyReq.setHeader('Content-Type', 'application/json');
+    proxyReq.setHeader('Accept', 'application/json');
     proxyReq.setHeader('Connection', 'keep-alive');
   },
   onProxyRes: (proxyRes, req, res) => {
     console.log('Received response from Supabase:', {
       statusCode: proxyRes.statusCode,
-      headers: proxyRes.headers
+      headers: proxyRes.headers,
+      path: req.path,
+      query: req.query
     });
     // Handle CORS headers
     proxyRes.headers['Access-Control-Allow-Origin'] = '*';
@@ -91,7 +89,8 @@ const supabaseProxy = createServiceProxy('Supabase', process.env.SUPABASE_URL, '
       code: err.code,
       stack: err.stack,
       path: req.path,
-      method: req.method
+      method: req.method,
+      query: req.query
     });
     
     // Handle specific error types
@@ -116,7 +115,7 @@ const cvProxy = createServiceProxy('CV Service', process.env.CV_SERVICE_URL, '/a
 const aiProxy = createServiceProxy('AI Service', process.env.AI_SERVICE_URL, '/api/ai');
 const paymentProxy = createServiceProxy('Payment Service', process.env.PAYMENT_SERVICE_URL, '/api/payment');
 
-// Supabase auth handler
+// Supabase auth handler for signup only
 app.post('/auth/v1/signup', async (req, res) => {
   try {
     console.log('Handling signup request:', {
@@ -134,7 +133,6 @@ app.post('/auth/v1/signup', async (req, res) => {
       },
       data: {
         ...req.body,
-        // Add email confirmation settings
         email_confirm: true,
         data: {
           ...req.body.data,
@@ -159,62 +157,6 @@ app.post('/auth/v1/signup', async (req, res) => {
 
     if (error.response) {
       // Forward Supabase's error response
-      res.status(error.response.status).json(error.response.data);
-    } else {
-      res.status(500).json({
-        error: 'Internal server error',
-        message: error.message
-      });
-    }
-  }
-});
-
-// Email verification endpoint
-app.get('/auth/v1/verify', async (req, res) => {
-  try {
-    const { token, type } = req.query;
-
-    if (!token || type !== 'signup') {
-      return res.status(400).json({
-        error: 'Invalid verification request',
-        message: 'Token and correct type are required'
-      });
-    }
-
-    console.log('Handling email verification:', {
-      token,
-      type,
-      headers: req.headers
-    });
-
-    const response = await axios({
-      method: 'GET',
-      url: `${process.env.SUPABASE_URL}/auth/v1/verify`,
-      headers: {
-        'apikey': process.env.SUPABASE_ANON_KEY,
-        'Accept': 'application/json'
-      },
-      params: {
-        token,
-        type
-      },
-      timeout: 30000
-    });
-
-    console.log('Verification response:', {
-      status: response.status,
-      data: response.data
-    });
-
-    res.status(response.status).json(response.data);
-  } catch (error) {
-    console.error('Verification error:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
-    });
-
-    if (error.response) {
       res.status(error.response.status).json(error.response.data);
     } else {
       res.status(500).json({
@@ -292,7 +234,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Route handlers
+// Route handlers - Note: auth/v1 proxy will handle verification
 app.use('/auth/v1', supabaseProxy);
 app.use('/api/cv', cvProxy);
 app.use('/api/ai', aiProxy);
