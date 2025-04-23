@@ -74,14 +74,20 @@ app.get('/', (req, res) => {
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
-// Proxy auth requests to Supabase
-app.all('/auth/v1/*', async (req, res) => {
+// Helper function to forward requests to Supabase
+async function forwardToSupabase(req, res, type = 'auth') {
   try {
-    const supabaseAuthUrl = `${supabaseUrl}/auth/v1${req.path.replace('/auth/v1', '')}`;
-    console.log('Proxying auth request to:', supabaseAuthUrl);
+    const baseUrl = type === 'auth' ? '/auth/v1' : '/rest/v1';
+    const supabaseEndpoint = `${supabaseUrl}${baseUrl}${req.path.replace(baseUrl, '')}`;
+    
+    console.log(`Proxying ${type} request to:`, supabaseEndpoint, {
+      method: req.method,
+      query: req.query,
+      body: req.method !== 'GET' ? req.body : undefined
+    });
 
     // Forward the request to Supabase
-    const response = await fetch(supabaseAuthUrl, {
+    const response = await fetch(supabaseEndpoint, {
       method: req.method,
       headers: {
         ...req.headers,
@@ -93,75 +99,61 @@ app.all('/auth/v1/*', async (req, res) => {
     });
 
     const data = await response.json();
-    console.log('Supabase auth response:', {
+    console.log(`Supabase ${type} response:`, {
       status: response.status,
-      data
+      data: response.status >= 400 ? data : 'Success'
     });
 
-    // Set CORS headers explicitly for auth responses
+    // Set CORS headers
     res.set({
-      'Access-Control-Allow-Origin': req.headers.origin,
+      'Access-Control-Allow-Origin': req.headers.origin || '*',
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-my-custom-header'
     });
 
+    // Forward Supabase response
     res.status(response.status).json(data);
   } catch (error) {
-    console.error('Auth proxy error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
+    console.error(`${type} proxy error:`, error);
+    
+    // Determine if it's a network error
+    const isNetworkError = !error.response && error.message.includes('network');
+    
+    res.status(isNetworkError ? 502 : 500).json({
+      error: isNetworkError ? 'Bad Gateway' : 'Internal Server Error',
+      message: error.message,
+      code: error.code
     });
   }
-});
+}
+
+// Proxy auth requests to Supabase
+app.all('/auth/v1/*', (req, res) => forwardToSupabase(req, res, 'auth'));
 
 // Proxy REST requests to Supabase
-app.all('/rest/v1/*', async (req, res) => {
-  try {
-    const supabaseRestUrl = `${supabaseUrl}/rest/v1${req.path.replace('/rest/v1', '')}`;
-    console.log('Proxying REST request to:', supabaseRestUrl);
-
-    const response = await fetch(supabaseRestUrl, {
-      method: req.method,
-      headers: {
-        ...req.headers,
-        'apikey': supabaseAnonKey,
-        'Authorization': req.headers.authorization || `Bearer ${supabaseAnonKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined
-    });
-
-    const data = await response.json();
-    console.log('Supabase REST response:', {
-      status: response.status,
-      data
-    });
-
-    // Set CORS headers explicitly for REST responses
-    res.set({
-      'Access-Control-Allow-Origin': req.headers.origin,
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-my-custom-header'
-    });
-
-    res.status(response.status).json(data);
-  } catch (error) {
-    console.error('REST proxy error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
-  }
-});
+app.all('/rest/v1/*', (req, res) => forwardToSupabase(req, res, 'rest'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
+  console.error('Global error handler:', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
+
+  // Handle CORS errors
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Origin not allowed by CORS policy',
+      origin: req.headers.origin
+    });
+  }
+
   res.status(500).json({
-    error: 'Internal server error',
+    error: 'Internal Server Error',
     message: err.message
   });
 });
