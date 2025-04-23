@@ -66,28 +66,3 @@ passport.use(new LinkedInStrategy({
     }
   }
 ));
-
-// Microsoft Strategy
-passport.use(new MicrosoftStrategy({
-    clientID: process.env.MICROSOFT_CLIENT_ID,
-    clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-    callbackURL: "/auth/microsoft/callback",
-    scope: ['user.read'],
-    passReqToCallback: true
-  },
-  async (req, accessToken, refreshToken, profile, done) => {
-    try {
-      const user = {
-        id: profile.id,
-        email: profile.emails[0].value,
-        name: profile.displayName,
-        provider: 'microsoft',
-        accessToken
-      };
-      
-      return done(null, user);
-    } catch (error) {
-      return done(error, null);
-    }
-  }
-)); 
