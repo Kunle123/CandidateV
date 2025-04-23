@@ -5,8 +5,17 @@ const fetch = require('node-fetch');
 
 const app = express();
 
-// Enable CORS for all routes
-app.use(cors());
+// Configure CORS with specific options
+const corsOptions = {
+  origin: ['http://localhost:3000', 'https://candidate-v.vercel.app', 'https://candidatev.com'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'apikey', 'x-client-info', 'x-my-custom-header'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+};
+
+// Enable CORS with options
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Initialize Supabase client
@@ -34,6 +43,9 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
 // Proxy auth requests to Supabase
 app.all('/auth/v1/*', async (req, res) => {
   try {
@@ -56,6 +68,14 @@ app.all('/auth/v1/*', async (req, res) => {
     console.log('Supabase auth response:', {
       status: response.status,
       data
+    });
+
+    // Set CORS headers explicitly for auth responses
+    res.set({
+      'Access-Control-Allow-Origin': req.headers.origin,
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-my-custom-header'
     });
 
     res.status(response.status).json(data);
@@ -89,6 +109,14 @@ app.all('/rest/v1/*', async (req, res) => {
     console.log('Supabase REST response:', {
       status: response.status,
       data
+    });
+
+    // Set CORS headers explicitly for REST responses
+    res.set({
+      'Access-Control-Allow-Origin': req.headers.origin,
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-my-custom-header'
     });
 
     res.status(response.status).json(data);
