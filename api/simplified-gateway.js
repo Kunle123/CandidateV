@@ -80,14 +80,27 @@ async function forwardToSupabase(req, res, type = 'auth') {
     const baseUrl = type === 'auth' ? '/auth/v1' : '/rest/v1';
     const supabaseEndpoint = `${supabaseUrl}${baseUrl}${req.path.replace(baseUrl, '')}`;
     
-    console.log(`Proxying ${type} request to:`, supabaseEndpoint, {
+    console.log(`Proxying ${type} request to:`, {
+      url: supabaseEndpoint,
       method: req.method,
+      path: req.path,
       query: req.query,
-      body: req.method !== 'GET' ? req.body : undefined
+      headers: {
+        ...req.headers,
+        authorization: req.headers.authorization ? '[REDACTED]' : undefined,
+        apikey: '[REDACTED]'
+      }
     });
 
+    // Special handling for token endpoint
+    const isTokenEndpoint = req.path.includes('/token') || req.path.includes('/sign-in');
+    const body = isTokenEndpoint ? {
+      ...req.body,
+      grant_type: 'password'
+    } : req.body;
+
     // Forward the request to Supabase
-    const response = await fetch(supabaseEndpoint, {
+    const response = await fetch(supabaseEndpoint + (req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''), {
       method: req.method,
       headers: {
         ...req.headers,
@@ -95,13 +108,15 @@ async function forwardToSupabase(req, res, type = 'auth') {
         'Authorization': req.headers.authorization || `Bearer ${supabaseAnonKey}`,
         'Content-Type': 'application/json'
       },
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined
+      body: req.method !== 'GET' ? JSON.stringify(body) : undefined
     });
 
     const data = await response.json();
     console.log(`Supabase ${type} response:`, {
+      url: supabaseEndpoint,
       status: response.status,
-      data: response.status >= 400 ? data : 'Success'
+      success: response.status < 400,
+      error: response.status >= 400 ? data : undefined
     });
 
     // Set CORS headers
@@ -115,7 +130,12 @@ async function forwardToSupabase(req, res, type = 'auth') {
     // Forward Supabase response
     res.status(response.status).json(data);
   } catch (error) {
-    console.error(`${type} proxy error:`, error);
+    console.error(`${type} proxy error:`, {
+      error: error.message,
+      stack: error.stack,
+      path: req.path,
+      method: req.method
+    });
     
     // Determine if it's a network error
     const isNetworkError = !error.response && error.message.includes('network');
