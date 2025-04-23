@@ -470,23 +470,28 @@ app.post('/auth/v1/token', async (req, res) => {
       }
     });
 
-    // Remove grant_type from body and add it as query parameter
+    // Forward the request to Supabase
     const response = await axios.post(
-      `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      `${process.env.SUPABASE_URL}/auth/v1/token`,
       req.body,
       {
         headers: {
           'Content-Type': 'application/json',
           'apikey': process.env.SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+        },
+        params: {
+          // Forward any query parameters
+          ...req.query,
+          // Ensure grant_type is set for password-based auth
+          grant_type: req.query.grant_type || 'password'
         }
       }
     );
 
     console.log('Token response:', {
       status: response.status,
-      hasData: !!response.data,
-      data: response.data
+      hasData: !!response.data
     });
 
     return res.status(response.status).json(response.data);
@@ -494,8 +499,7 @@ app.post('/auth/v1/token', async (req, res) => {
     console.error('Token error:', {
       status: error.response?.status,
       data: error.response?.data,
-      message: error.message,
-      body: req.body
+      message: error.message
     });
 
     if (error.response) {

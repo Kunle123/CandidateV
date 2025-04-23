@@ -27,9 +27,9 @@ const options = {
     persistSession: true,
     detectSessionInUrl: true,
     storage: window.localStorage,
-    storageKey: 'candidatev-auth-token'
-  },
-  global: {
+    storageKey: 'candidatev-auth-token',
+    // Configure auth to use our API Gateway
+    url: `${apiGatewayUrl}/auth/v1`,
     headers: {
       'x-my-custom-header': 'CandidateV'
     }
@@ -79,7 +79,11 @@ export const authHelper = {
         email,
         password,
         options: {
-          persistSession: true
+          // Ensure we're using the API Gateway for auth
+          redirectTo: window.location.origin,
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
       })
       
