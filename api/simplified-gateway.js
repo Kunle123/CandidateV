@@ -470,9 +470,15 @@ app.post('/auth/v1/token', async (req, res) => {
       }
     });
 
+    // Add grant_type=password for password-based auth
+    const requestBody = {
+      ...req.body,
+      grant_type: 'password'
+    };
+
     const response = await axios.post(
       `${process.env.SUPABASE_URL}/auth/v1/token`,
-      req.body,
+      requestBody,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -555,17 +561,14 @@ app.post('/auth/v1/sign-in', async (req, res) => {
   }
 });
 
-// Add the signInWithPassword endpoint that Supabase expects
+// Add specific handler for signInWithPassword
 app.post('/auth/v1/sign-in-with-password', async (req, res) => {
   try {
     console.log('Handling sign-in-with-password request:', {
       method: req.method,
       path: req.path,
-      body: req.body,
-      headers: {
-        'content-type': req.headers['content-type'],
-        'x-client-info': req.headers['x-client-info']
-      }
+      email: req.body.email,
+      hasPassword: !!req.body.password
     });
 
     const response = await axios.post(
@@ -582,8 +585,7 @@ app.post('/auth/v1/sign-in-with-password', async (req, res) => {
 
     console.log('Sign-in response:', {
       status: response.status,
-      hasData: !!response.data,
-      data: response.data
+      hasData: !!response.data
     });
 
     return res.status(response.status).json(response.data);
@@ -591,8 +593,7 @@ app.post('/auth/v1/sign-in-with-password', async (req, res) => {
     console.error('Sign-in error:', {
       status: error.response?.status,
       data: error.response?.data,
-      message: error.message,
-      body: req.body
+      message: error.message
     });
 
     if (error.response) {
