@@ -7,15 +7,13 @@ const app = express();
 
 // Get environment variables
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
 
 // Validate required environment variables
-if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing environment variables:', {
     hasSupabaseUrl: !!supabaseUrl,
-    hasServiceKey: !!supabaseServiceKey,
     hasAnonKey: !!supabaseAnonKey
   });
   throw new Error('Missing required environment variables');
@@ -44,8 +42,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Initialize Supabase client
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Initialize Supabase client with anon key
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Middleware to log requests
 app.use((req, res, next) => {
@@ -64,7 +62,6 @@ app.get('/', (req, res) => {
     environment: {
       nodeVersion: process.version,
       hasSupabaseUrl: !!supabaseUrl,
-      hasServiceKey: !!supabaseServiceKey,
       hasAnonKey: !!supabaseAnonKey,
       allowedOrigins
     }
@@ -156,26 +153,34 @@ app.all('/rest/v1/*', (req, res) => forwardToSupabase(req, res, 'rest'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Global error handler:', {
+  const isProd = process.env.NODE_ENV === 'production';
+  let status = err.status || 500;
+  let errorType = 'Internal Server Error';
+
+  if (err.message === 'Not allowed by CORS') {
+    status = 403;
+    errorType = 'Forbidden';
+  }
+
+  // Log error with context
+  console.error('Error Handler:', {
     error: err.message,
     stack: err.stack,
     path: req.path,
-    method: req.method
+    method: req.method,
+    headers: req.headers,
+    body: req.body
   });
 
-  // Handle CORS errors
-  if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({
-      error: 'Forbidden',
-      message: 'Origin not allowed by CORS policy',
-      origin: req.headers.origin
-    });
-  }
+  // Build error response
+  const errorResponse = {
+    error: errorType,
+    message: err.message,
+    status,
+    ...(isProd ? {} : { stack: err.stack, details: err })
+  };
 
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: err.message
-  });
+  res.status(status).json(errorResponse);
 });
 
 const port = process.env.PORT || 3000;
@@ -184,7 +189,6 @@ app.listen(port, () => {
     environment: {
       nodeVersion: process.version,
       hasSupabaseUrl: !!supabaseUrl,
-      hasServiceKey: !!supabaseServiceKey,
       hasAnonKey: !!supabaseAnonKey,
       allowedOrigins
     }
