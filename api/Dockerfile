@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:18
 
 WORKDIR /app
 
@@ -14,6 +14,7 @@ COPY . .
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8000
+ENV NODE_OPTIONS=--tls-min-v1.2
 
 # Expose port
 EXPOSE 8000
