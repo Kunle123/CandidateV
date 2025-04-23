@@ -5,9 +5,35 @@ const fetch = require('node-fetch');
 
 const app = express();
 
+// Get environment variables
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+
+// Validate required environment variables
+if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+  console.error('Missing environment variables:', {
+    hasSupabaseUrl: !!supabaseUrl,
+    hasServiceKey: !!supabaseServiceKey,
+    hasAnonKey: !!supabaseAnonKey
+  });
+  throw new Error('Missing required environment variables');
+}
+
 // Configure CORS with specific options
 const corsOptions = {
-  origin: ['http://localhost:3000', 'https://candidate-v.vercel.app', 'https://candidatev.com'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn('Blocked request from unauthorized origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'apikey', 'x-client-info', 'x-my-custom-header'],
   credentials: true,
@@ -19,28 +45,30 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
-  throw new Error('Missing required environment variables');
-}
-
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Middleware to log requests
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`, {
+    origin: req.headers.origin,
     headers: req.headers,
-    body: req.body
+    body: req.method !== 'GET' ? req.body : undefined
   });
   next();
 });
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ 
+    status: 'ok',
+    environment: {
+      nodeVersion: process.version,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      hasAnonKey: !!supabaseAnonKey,
+      allowedOrigins
+    }
+  });
 });
 
 // Handle preflight requests
@@ -140,5 +168,13 @@ app.use((err, req, res, next) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`API Gateway listening on port ${port}`);
+  console.log(`API Gateway listening on port ${port}`, {
+    environment: {
+      nodeVersion: process.version,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      hasAnonKey: !!supabaseAnonKey,
+      allowedOrigins
+    }
+  });
 }); 
