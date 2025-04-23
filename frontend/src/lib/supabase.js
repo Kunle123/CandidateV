@@ -14,11 +14,11 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const apiGatewayUrl = import.meta.env.VITE_API_GATEWAY_URL || 'https://api-gw-production.up.railway.app'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+if (!apiGatewayUrl || !supabaseAnonKey) {
+  throw new Error('Missing required environment variables')
 }
 
 const options = {
@@ -27,7 +27,10 @@ const options = {
     persistSession: true,
     detectSessionInUrl: true,
     storage: window.localStorage,
-    storageKey: 'candidatev-auth-token'
+    storageKey: 'candidatev-auth-token',
+    // Force auth requests through our API Gateway
+    flowType: 'pkce',
+    url: `${apiGatewayUrl}/auth/v1`
   },
   global: {
     headers: {
@@ -38,22 +41,12 @@ const options = {
 
 // Create Supabase client with API gateway URL
 console.log('Creating Supabase client with config:', {
-  url: 'https://aqmybjkzxfwiizorveco.supabase.co',
+  url: apiGatewayUrl,
   hasAnonKey: !!supabaseAnonKey,
-  options: {
-    ...options,
-    endpoint: {
-      auth: 'https://api-gw-production.up.railway.app/auth/v1'
-    }
-  }
+  options
 });
 
-const supabase = createClient('https://aqmybjkzxfwiizorveco.supabase.co', supabaseAnonKey, {
-  ...options,
-  endpoint: {
-    auth: 'https://api-gw-production.up.railway.app/auth/v1'
-  }
-})
+const supabase = createClient(apiGatewayUrl, supabaseAnonKey, options)
 
 // Export the Supabase instance
 export { supabase }
@@ -64,6 +57,7 @@ export const auth = supabase.auth
 // Auth helper functions with consistent error handling
 export const authHelper = {
   async signUp({ email, password, name, terms_accepted }) {
+    console.log('Starting signup with:', { email, hasPassword: !!password, name, terms_accepted });
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -82,11 +76,7 @@ export const authHelper = {
   },
 
   async signInWithPassword({ email, password }) {
-    console.log('Starting login attempt with config:', {
-      endpoint: supabase.auth.endpoint,
-      url: supabase.auth.url,
-      headers: supabase.auth.headers
-    });
+    console.log('Starting login attempt for:', { email });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
