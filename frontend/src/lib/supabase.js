@@ -50,6 +50,26 @@ export { supabase }
 // Export direct auth access
 export const auth = supabase.auth
 
+// Map Supabase error codes to user-friendly messages
+const errorMessages = {
+  'user_already_registered': 'This email is already registered. Please log in or reset your password.',
+  'invalid_email': 'The email address is invalid.',
+  'invalid_password': 'The password is invalid or too weak.',
+  'email_not_confirmed': 'Please verify your email before logging in.',
+  'invalid_login_credentials': 'Incorrect email or password.',
+  'unverified_email': 'Please verify your email before logging in.',
+  'rate_limit_exceeded': 'Too many attempts. Please try again later.',
+  'user_blocked': 'Your account has been blocked. Contact support.',
+  'default': 'An unexpected error occurred. Please try again.'
+};
+
+function mapSupabaseError(error) {
+  if (!error) return errorMessages.default;
+  if (error.message && errorMessages[error.message]) return errorMessages[error.message];
+  if (error.code && errorMessages[error.code]) return errorMessages[error.code];
+  return error.message || errorMessages.default;
+}
+
 // Auth helper functions with consistent error handling
 export const authHelper = {
   async signUp({ email, password, name, terms_accepted }) {
@@ -67,8 +87,8 @@ export const authHelper = {
       }
     })
     
-    if (error) throw error
-    return { data, error }
+    if (error) throw new Error(mapSupabaseError(error));
+    return { data, error };
   },
 
   async signInWithPassword({ email, password }) {
@@ -89,7 +109,7 @@ export const authHelper = {
       
       if (error) {
         console.error('Login error:', error);
-        throw error;
+        throw new Error(mapSupabaseError(error));
       }
 
       if (!data?.session) {

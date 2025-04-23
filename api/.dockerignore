@@ -1,0 +1,11 @@
+# Exclude node_modules from being copied (we'll install fresh ones)
+node_modules
+npm-debug.log
+
+# Exclude development files
+.env
+.env.local
+.env.*.local
+.git
+.gitignore
+README.md 
