@@ -1,74 +1,45 @@
-import { profileHelper, preferencesHelper } from '../lib/supabaseDb';
-import { retryApiCall } from './utils';
-import { supabase } from '../lib/supabase';
+import axios from 'axios';
+import config from './config';
+
+const api = axios.create({
+  baseURL: config.USER_API_URL,
+  withCredentials: true
+});
 
 // User profile service
 const userService = {
   // Get current user profile
   async getCurrentProfile() {
-    return await profileHelper.getCurrentProfile();
-  },
-
-  // Get current user profile with retry on network errors
-  async getCurrentProfileWithRetry() {
-    try {
-      const result = await retryApiCall(
-        () => profileHelper.getCurrentProfile(),
-        { maxRetries: 3 }
-      );
-      return result;
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error.message
-      };
-    }
+    const response = await api.get('/user/profile');
+    return response.data;
   },
 
   // Update user profile
   async updateProfile(profileData) {
-    return await profileHelper.updateProfile(profileData);
+    const response = await api.put('/user/profile', profileData);
+    return response.data;
   },
 
   // Update user preferences
   async updatePreferences(preferences) {
-    return await preferencesHelper.updatePreferences(preferences);
+    const response = await api.put('/user/preferences', preferences);
+    return response.data;
   },
 
   // Upload profile image
   async uploadProfileImage(file) {
-    return await profileHelper.uploadProfileImage(file);
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/user/profile/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
   },
 
   // Delete profile image
   async deleteProfileImage() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
-      // Delete the image from storage
-      const { error: deleteError } = await supabase.storage
-        .from('profile-images')
-        .remove([`${user.id}/profile`]);
-
-      if (deleteError) throw deleteError;
-
-      // Update profile to remove image URL
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ avatar_url: null })
-        .eq('id', user.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error.message
-      };
-    }
+    const response = await api.delete('/user/profile/image');
+    return response.data;
   }
 };
 

@@ -18,7 +18,7 @@ import {
   InputRightElement,
   IconButton,
 } from '@chakra-ui/react';
-import authService from '../api/authService';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('demo@candidatev.com');
@@ -27,6 +27,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   
+  const { signIn, getSocialLoginUrl } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -39,27 +40,14 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      const result = await authService.login(email, password);
-      
+      const result = await signIn({ email, password });
       if (result.success) {
-        if (result.demo) {
-          toast({
-            title: 'Demo Mode Active',
-            description: 'You are now logged in using demo credentials.',
-            status: 'info',
-            duration: 5000,
-            isClosable: true,
-          });
-        } else {
-          toast({
-            title: 'Login successful',
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-          });
-        }
-        
-        // Navigate to the page the user was trying to access, or dashboard
+        toast({
+          title: 'Login successful',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
         navigate(from, { replace: true });
       } else {
         toast({
@@ -83,6 +71,10 @@ const Login = () => {
     }
   };
   
+  const handleSocialLogin = (provider) => {
+    window.location.href = getSocialLoginUrl(provider);
+  };
+
   const toggleShowPassword = () => setShowPassword(!showPassword);
   
   return (
@@ -152,6 +144,18 @@ const Login = () => {
             </Button>
           </VStack>
         </Box>
+        
+        <VStack spacing={2}>
+          <Button colorScheme="red" w="100%" onClick={() => handleSocialLogin('google')}>
+            Continue with Google
+          </Button>
+          <Button colorScheme="linkedin" w="100%" onClick={() => handleSocialLogin('linkedin')}>
+            Continue with LinkedIn
+          </Button>
+          <Button colorScheme="facebook" w="100%" onClick={() => handleSocialLogin('facebook')}>
+            Continue with Facebook
+          </Button>
+        </VStack>
         
         <Text textAlign="center">
           Don't have an account? <Link color="blue.500" href="/register">Sign up</Link>

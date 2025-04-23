@@ -21,6 +21,9 @@ const TIMEOUTS = {
   test: 10000         // 10 seconds
 };
 
+const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:3001';
+const USER_API_URL = import.meta.env.VITE_USER_API_URL || 'http://localhost:3002';
+
 // Config export
 const config = {
   baseURL: BASE_URLS[environment],
@@ -79,7 +82,10 @@ const config = {
       subscribe: '/payment/subscribe',
       cancel: '/payment/cancel'
     }
-  }
+  },
+
+  AUTH_API_URL,
+  USER_API_URL
 };
 
 export default config; 
