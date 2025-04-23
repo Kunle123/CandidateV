@@ -33,7 +33,14 @@ const corsOptions = {
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'apikey', 'x-client-info', 'x-my-custom-header'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'apikey',
+    'x-client-info',
+    'x-my-custom-header',
+    'x-supabase-api-version'
+  ],
   credentials: true,
   maxAge: 86400 // 24 hours
 };
