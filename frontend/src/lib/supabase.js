@@ -14,7 +14,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Initialize Supabase client
-const apiGatewayUrl = import.meta.env.VITE_API_GATEWAY_URL || 'https://api-gw-production.up.railway.app'
+const apiGatewayUrl = import.meta.env.VITE_API_BASE_URL || 'https://api-gw-production.up.railway.app'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!apiGatewayUrl || !supabaseAnonKey) {
