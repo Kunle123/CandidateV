@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -43,6 +45,7 @@ const corsOptions = {
 // Enable CORS with options
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Initialize Supabase client
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -80,11 +83,20 @@ async function forwardToSupabase(req, res, type = 'auth') {
     const baseUrl = type === 'auth' ? '/auth/v1' : '/rest/v1';
     const supabaseEndpoint = `${supabaseUrl}${baseUrl}${req.path.replace(baseUrl, '')}`;
     
+    // For auth endpoints, ensure body parameters take precedence over query parameters
+    let requestBody = req.body;
+    if (type === 'auth' && req.method === 'POST') {
+      requestBody = {
+        ...req.query,  // Include query params as fallback
+        ...req.body,   // Body params take precedence
+      };
+    }
+
     console.log(`Proxying ${type} request to:`, {
       url: supabaseEndpoint,
       method: req.method,
       path: req.path,
-      query: req.query,
+      body: requestBody,
       headers: {
         ...req.headers,
         authorization: req.headers.authorization ? '[REDACTED]' : undefined,
@@ -92,31 +104,37 @@ async function forwardToSupabase(req, res, type = 'auth') {
       }
     });
 
-    // Special handling for token endpoint
-    const isTokenEndpoint = req.path.includes('/token') || req.path.includes('/sign-in');
-    const body = isTokenEndpoint ? {
-      ...req.body,
-      grant_type: 'password'
-    } : req.body;
-
     // Forward the request to Supabase
-    const response = await fetch(supabaseEndpoint + (req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''), {
+    const response = await fetch(supabaseEndpoint, {
       method: req.method,
       headers: {
         ...req.headers,
         'apikey': supabaseAnonKey,
         'Authorization': req.headers.authorization || `Bearer ${supabaseAnonKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json'  // Ensure JSON content type
       },
-      body: req.method !== 'GET' ? JSON.stringify(body) : undefined
+      body: req.method !== 'GET' ? JSON.stringify(requestBody) : undefined
     });
 
-    const data = await response.json();
+    // Get response data
+    let data;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
+
     console.log(`Supabase ${type} response:`, {
       url: supabaseEndpoint,
       status: response.status,
       success: response.status < 400,
       error: response.status >= 400 ? data : undefined
+    });
+
+    // Forward all response headers from Supabase
+    response.headers.forEach((value, key) => {
+      res.set(key, value);
     });
 
     // Set CORS headers
@@ -127,8 +145,12 @@ async function forwardToSupabase(req, res, type = 'auth') {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info, x-my-custom-header'
     });
 
-    // Forward Supabase response
-    res.status(response.status).json(data);
+    // Forward Supabase response with original status and data
+    if (typeof data === 'string') {
+      res.status(response.status).send(data);
+    } else {
+      res.status(response.status).json(data);
+    }
   } catch (error) {
     console.error(`${type} proxy error:`, {
       error: error.message,

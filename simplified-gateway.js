@@ -1,0 +1,1 @@
+api/simplified-gateway.js
