@@ -27,10 +27,7 @@ const options = {
     persistSession: true,
     detectSessionInUrl: true,
     storage: window.localStorage,
-    storageKey: 'candidatev-auth-token',
-    // Force auth requests through our API Gateway
-    flowType: 'pkce',
-    url: `${apiGatewayUrl}/auth/v1`
+    storageKey: 'candidatev-auth-token'
   },
   global: {
     headers: {

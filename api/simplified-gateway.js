@@ -470,15 +470,10 @@ app.post('/auth/v1/token', async (req, res) => {
       }
     });
 
-    // Add grant_type=password for password-based auth
-    const requestBody = {
-      ...req.body,
-      grant_type: 'password'
-    };
-
+    // Remove grant_type from body and add it as query parameter
     const response = await axios.post(
-      `${process.env.SUPABASE_URL}/auth/v1/token`,
-      requestBody,
+      `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      req.body,
       {
         headers: {
           'Content-Type': 'application/json',
