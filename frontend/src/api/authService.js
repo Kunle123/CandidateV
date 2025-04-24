@@ -28,6 +28,12 @@ const authService = {
   async getCurrentUser() {
     const response = await api.get('/auth/user');
     return response.data;
+  },
+
+  // Register (sign up)
+  async signUp({ name, email, password }) {
+    const response = await api.post('/auth/register', { name, email, password });
+    return response.data;
   }
 };
 

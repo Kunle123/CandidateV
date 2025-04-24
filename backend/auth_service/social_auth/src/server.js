@@ -4,6 +4,8 @@ const passport = require('passport');
 const session = require('express-session');
 const cors = require('cors');
 const morgan = require('morgan');
+const RedisStore = require('connect-redis').default;
+const { createClient } = require('redis');
 
 // Import routes (to be created)
 const authRoutes = require('./routes/auth');
@@ -23,7 +25,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Session configuration
+const redisClient = createClient({ url: process.env.REDIS_URL });
+redisClient.connect().catch(console.error);
+
 app.use(session({
+  store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
