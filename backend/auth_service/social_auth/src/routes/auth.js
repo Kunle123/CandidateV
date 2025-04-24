@@ -1,5 +1,7 @@
 const express = require('express');
 const passport = require('passport');
+const bcrypt = require('bcryptjs');
+const pool = require('../db');
 const router = express.Router();
 
 // Google Auth Routes
@@ -58,18 +60,55 @@ router.get('/user', (req, res) => {
 
 // Email/Password Registration
 router.post('/register', async (req, res) => {
-  // TODO: Implement user creation logic (hash password, save to DB, etc.)
   const { name, email, password } = req.body;
-  // For now, just return a success response
-  res.json({ success: true, message: 'User registered (placeholder)', user: { name, email } });
+  if (!name || !email || !password) {
+    return res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
+  }
+  try {
+    // Check if user already exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length > 0) {
+      return res.status(409).json({ success: false, message: 'Email already registered.' });
+    }
+    // Hash password
+    const password_hash = await bcrypt.hash(password, 10);
+    // Insert user
+    const result = await pool.query(
+      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
+      [name, email, password_hash]
+    );
+    const user = result.rows[0];
+    res.json({ success: true, message: 'User registered successfully.', user });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ success: false, message: 'Registration failed.' });
+  }
 });
 
 // Email/Password Login
 router.post('/login', async (req, res) => {
-  // TODO: Implement user authentication logic (check password, etc.)
   const { email, password } = req.body;
-  // For now, just return a success response
-  res.json({ success: true, message: 'User logged in (placeholder)', user: { email } });
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required.' });
+  }
+  try {
+    // Find user
+    const result = await pool.query('SELECT id, name, email, password_hash FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
+    const user = result.rows[0];
+    // Check password
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
+    // Return user info (do not include password_hash)
+    res.json({ success: true, message: 'Login successful.', user: { id: user.id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ success: false, message: 'Login failed.' });
+  }
 });
 
 module.exports = router; 
