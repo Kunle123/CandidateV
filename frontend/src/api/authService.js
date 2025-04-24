@@ -1,6 +1,7 @@
 import axios from 'axios';
 import config from './config';
 
+console.log('All import.meta.env at runtime:', import.meta.env);
 console.log('AUTH_API_URL at runtime:', config.AUTH_API_URL);
 
 const api = axios.create({
