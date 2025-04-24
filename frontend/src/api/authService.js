@@ -1,6 +1,8 @@
 import axios from 'axios';
 import config from './config';
 
+console.log('AUTH_API_URL at runtime:', config.AUTH_API_URL);
+
 const api = axios.create({
   baseURL: config.AUTH_API_URL,
   withCredentials: true // for cookies/session
@@ -32,6 +34,7 @@ const authService = {
 
   // Register (sign up)
   async signUp({ name, email, password }) {
+    console.log('Registering user via:', api.defaults.baseURL + '/auth/register');
     const response = await api.post('/auth/register', { name, email, password });
     return response.data;
   }
