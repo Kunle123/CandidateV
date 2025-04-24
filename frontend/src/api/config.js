@@ -31,6 +31,8 @@ const config = {
   environment,
   isDevelopment,
   isProduction,
+  AUTH_API_URL,
+  USER_API_URL,
   
   // Logging settings
   logging: {
