@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { authHelper } from '../lib/supabase'
 import { authService } from '../lib/authService'
+import authService from '../api/authService'
 
 const AuthContext = createContext({})
 
