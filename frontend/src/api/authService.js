@@ -17,26 +17,26 @@ const authService = {
 
   // Login (email/password)
   async login({ email, password }) {
-    const response = await api.post('/auth/login', { email, password });
+    const response = await api.post('/login', { email, password });
     return response.data;
   },
 
   // Logout
   async logout() {
-    const response = await api.post('/auth/logout');
+    const response = await api.post('/logout');
     return response.data;
   },
 
   // Get current user
   async getCurrentUser() {
-    const response = await api.get('/auth/user');
+    const response = await api.get('/user');
     return response.data;
   },
 
   // Register (sign up)
   async signUp({ name, email, password }) {
-    console.log('Registering user via:', api.defaults.baseURL + '/auth/register');
-    const response = await api.post('/auth/register', { name, email, password });
+    console.log('Registering user via:', api.defaults.baseURL + '/register');
+    const response = await api.post('/register', { name, email, password });
     return response.data;
   }
 };
