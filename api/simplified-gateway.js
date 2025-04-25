@@ -36,7 +36,10 @@ const corsOptions = {
 // Enable CORS with options
 app.use(cors(corsOptions));
 
-// Middleware to log requests
+// Only apply express.json() to non-proxied routes
+app.use(express.json());
+
+// Middleware to log requests (after body parsing for non-proxied routes)
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`, {
     origin: req.headers.origin,
@@ -94,9 +97,6 @@ if (!cvServiceUrl) {
     }
   }));
 }
-
-// Only apply express.json() to non-proxied routes
-app.use(express.json());
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
