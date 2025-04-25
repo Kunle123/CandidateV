@@ -67,15 +67,13 @@ export const AuthProvider = ({ children }) => {
       try {
         setLoading(true)
         setError(null)
-        const { data, error } = await authHelper.signInWithPassword({ email, password })
-        
-        if (error) throw error
-        
-        if (data?.user) {
-          setUser(data.user)
-          return { success: true, data: data.user }
+        const result = await authService.login({ email, password });
+        if (result.success && result.token && result.user) {
+          localStorage.setItem('jwt', result.token);
+          setUser(result.user);
+          return { success: true, user: result.user };
         } else {
-          throw new Error('No user data returned from sign in')
+          throw new Error(result.message || 'Login failed');
         }
       } catch (error) {
         console.error('Sign in error:', error)
