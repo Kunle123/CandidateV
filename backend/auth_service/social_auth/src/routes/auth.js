@@ -111,4 +111,15 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Profile endpoint
+router.get('/profile', (req, res) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    // Only return id, name, and email
+    const { id, name, email } = req.user;
+    res.json({ success: true, user: { id, name, email } });
+  } else {
+    res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+});
+
 module.exports = router; 
