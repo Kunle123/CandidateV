@@ -35,7 +35,6 @@ const corsOptions = {
 
 // Enable CORS with options
 app.use(cors(corsOptions));
-app.use(express.json());
 
 // Middleware to log requests
 app.use((req, res, next) => {
@@ -79,6 +78,9 @@ if (!authServiceUrl) {
     }
   }));
 }
+
+// Only apply express.json() to non-proxied routes
+app.use(express.json());
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
