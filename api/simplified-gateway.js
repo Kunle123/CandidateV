@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 
@@ -59,6 +60,25 @@ app.get('/', (req, res) => {
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
+
+// Proxy /api/auth/* to the auth service
+const authServiceUrl = process.env.AUTH_SERVICE_URL;
+if (!authServiceUrl) {
+  console.error('AUTH_SERVICE_URL environment variable is not set!');
+} else {
+  app.use('/api/auth', createProxyMiddleware({
+    target: authServiceUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/api/auth': '/auth' },
+    onProxyReq: (proxyReq, req, res) => {
+      // Optionally log or modify proxy requests here
+    },
+    onError: (err, req, res) => {
+      console.error('Proxy error:', err);
+      res.status(502).json({ error: 'Proxy error', details: err.message });
+    }
+  }));
+}
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
