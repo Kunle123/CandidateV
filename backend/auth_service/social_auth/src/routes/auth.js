@@ -91,9 +91,11 @@ function authenticateJWT(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
-    // DEBUG: Log JWT_SECRET before verifying
+    // Log the token (first and last 10 chars)
+    console.log('About to verify JWT:', token ? token.slice(0, 10) + '...' + token.slice(-10) : 'undefined');
     console.log('DEBUG: Verifying JWT with secret:', process.env.JWT_SECRET);
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      console.log('JWT verify callback triggered. err:', err, 'user:', user);
       if (err) {
         console.error('JWT verification error:', err && err.message, err);
         return res.status(403).json({ success: false, message: 'Invalid token' });
