@@ -91,6 +91,8 @@ function authenticateJWT(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
+    // DEBUG: Log JWT_SECRET before verifying
+    console.log('DEBUG: Verifying JWT with secret:', process.env.JWT_SECRET);
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
       if (err) return res.status(403).json({ success: false, message: 'Invalid token' });
       req.user = user;
@@ -119,6 +121,8 @@ router.post('/login', async (req, res) => {
     if (!valid) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
+    // DEBUG: Log JWT_SECRET before signing
+    console.log('DEBUG: Signing JWT with secret:', process.env.JWT_SECRET);
     // Issue JWT
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email },
