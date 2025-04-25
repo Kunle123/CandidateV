@@ -42,10 +42,10 @@ app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+      return callback(null, origin); // Echo the actual origin
     } else {
       console.warn('Blocked by CORS:', origin);
-      return callback(null, false); // Respond with no CORS headers, not an error
+      return callback(null, false); // No CORS headers
     }
   },
   credentials: true,
