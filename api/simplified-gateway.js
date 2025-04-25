@@ -79,6 +79,22 @@ if (!authServiceUrl) {
   }));
 }
 
+// Proxy /api/cv/* to the CV service
+const cvServiceUrl = process.env.CV_SERVICE_URL;
+if (!cvServiceUrl) {
+  console.error('CV_SERVICE_URL environment variable is not set!');
+} else {
+  app.use('/api/cv', createProxyMiddleware({
+    target: cvServiceUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/api/cv': '/cv' },
+    onError: (err, req, res) => {
+      console.error('Proxy error:', err);
+      res.status(502).json({ error: 'Proxy error', details: err.message });
+    }
+  }));
+}
+
 // Only apply express.json() to non-proxied routes
 app.use(express.json());
 
