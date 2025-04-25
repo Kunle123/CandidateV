@@ -95,7 +95,7 @@ function authenticateJWT(req, res, next) {
     console.log('DEBUG: Verifying JWT with secret:', process.env.JWT_SECRET);
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
       if (err) {
-        console.error('JWT verification error:', err);
+        console.error('JWT verification error:', err && err.message, err);
         return res.status(403).json({ success: false, message: 'Invalid token' });
       }
       req.user = user;
