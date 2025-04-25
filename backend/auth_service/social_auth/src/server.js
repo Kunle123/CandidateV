@@ -1,34 +1,64 @@
+/**
+ * server.js
+ * 
+ * Main entry point for the CandidateV Auth Service.
+ * 
+ * - Sets up Express server with robust CORS handling for production and development.
+ * - Configures secure session management with Redis.
+ * - Initializes Passport for authentication.
+ * - Mounts authentication routes and health check.
+ * - Handles errors gracefully.
+ * 
+ * Created: 2024-04-27
+ * Author: CandidateV Team
+ */
+
 require('dotenv').config();
 const express = require('express');
-const passport = require('passport');
 const session = require('express-session');
+const passport = require('passport');
 const cors = require('cors');
 const morgan = require('morgan');
 const RedisStore = require('connect-redis').default;
 const { createClient } = require('redis');
 
-// Import routes (to be created)
+// Import routes and passport config
 const authRoutes = require('./routes/auth');
-
-// Import passport configuration (we'll create this next)
 require('./config/passport');
 
 const app = express();
 
-// Middleware
-app.use(morgan('dev')); // Logging
+// --- CORS Configuration ---
+// Allow only trusted origins (add more as needed)
+const allowedOrigins = [
+  'https://candidate-v-frontend.vercel.app',
+  'https://candidate-v.vercel.app',
+  'https://candidatev.vercel.app',
+  'https://api-gw-production.up.railway.app',
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: [
-    'https://api-gw-production.up.railway.app', // API Gateway
-    'https://your-frontend.vercel.app',        // Frontend (replace with actual URL)
-    'http://localhost:3000'                    // Local development
-  ],
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// --- Middleware ---
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session configuration
+// --- Session Configuration ---
 const redisClient = createClient({ url: process.env.REDIS_URL });
 redisClient.connect().catch(console.error);
 
@@ -38,37 +68,38 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    // For cross-origin cookies (Vercel frontend, Railway backend)
-    secure: true, // Always true in production for HTTPS
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     sameSite: 'none', // Required for cross-site cookies
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
 
-// Initialize Passport
+// --- Passport Initialization ---
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Routes
+// --- Routes ---
 app.use('/auth', authRoutes);
 
-// Health check endpoint
+// --- Health Check ---
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(200).json({ status: 'ok', message: 'Auth service is running' });
 });
 
-// Error handling middleware
+// --- Error Handling ---
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
-    status: 'error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
 });
 
+// --- Start Server ---
 const PORT = process.env.PORT || 3001;
-
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Auth service listening on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
-}); 
+});
+
+module.exports = app; 
