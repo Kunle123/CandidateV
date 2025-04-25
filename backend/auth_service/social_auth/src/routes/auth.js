@@ -3,6 +3,7 @@ const passport = require('passport');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 
 // Google Auth Routes
 router.get('/google',
@@ -85,6 +86,21 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// JWT authentication middleware
+function authenticateJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      if (err) return res.status(403).json({ success: false, message: 'Invalid token' });
+      req.user = user;
+      next();
+    });
+  } else {
+    res.status(401).json({ success: false, message: 'No token provided' });
+  }
+}
+
 // Email/Password Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -103,23 +119,24 @@ router.post('/login', async (req, res) => {
     if (!valid) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
-    // Return user info (do not include password_hash)
-    res.json({ success: true, message: 'Login successful.', user: { id: user.id, name: user.name, email: user.email } });
+    // Issue JWT
+    const token = jwt.sign(
+      { id: user.id, name: user.name, email: user.email },
+      process.env.JWT_SECRET,
+      { algorithm: process.env.JWT_ALGORITHM || 'HS256', expiresIn: process.env.JWT_EXPIRATION || '30m' }
+    );
+    // Return user info and token
+    res.json({ success: true, message: 'Login successful.', token, user: { id: user.id, name: user.name, email: user.email } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ success: false, message: 'Login failed.' });
   }
 });
 
-// Profile endpoint
-router.get('/profile', (req, res) => {
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    // Only return id, name, and email
-    const { id, name, email } = req.user;
-    res.json({ success: true, user: { id, name, email } });
-  } else {
-    res.status(401).json({ success: false, message: 'Not authenticated' });
-  }
+// Profile endpoint (JWT protected)
+router.get('/profile', authenticateJWT, (req, res) => {
+  const { id, name, email } = req.user;
+  res.json({ success: true, user: { id, name, email } });
 });
 
 module.exports = router; 
