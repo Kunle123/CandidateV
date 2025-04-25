@@ -34,7 +34,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    // For cross-origin cookies (Vercel frontend, Railway backend)
+    secure: true, // Always true in production for HTTPS
+    sameSite: 'none', // Required for cross-site cookies
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
