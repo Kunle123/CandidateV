@@ -40,18 +40,21 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
-      return callback(new Error('Not allowed by CORS'));
+      console.warn('Blocked by CORS:', origin);
+      return callback(null, false); // Respond with no CORS headers, not an error
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Manual OPTIONS handler for robust preflight support
+app.options('*', cors());
 
 // --- Middleware ---
 app.use(morgan('dev'));
