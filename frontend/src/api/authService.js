@@ -17,6 +17,7 @@ const authService = {
 
   // Login (email/password)
   async login({ email, password }) {
+    console.log('POSTing to:', api.defaults.baseURL + '/login');
     const response = await api.post('/login', { email, password });
     return response.data;
   },
@@ -35,7 +36,7 @@ const authService = {
 
   // Register (sign up)
   async signUp({ name, email, password }) {
-    console.log('Registering user via:', api.defaults.baseURL + '/register');
+    console.log('POSTing to:', api.defaults.baseURL + '/register');
     const response = await api.post('/register', { name, email, password });
     return response.data;
   }
