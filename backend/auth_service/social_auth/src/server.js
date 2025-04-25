@@ -18,7 +18,11 @@ const app = express();
 // Middleware
 app.use(morgan('dev')); // Logging
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    'https://api-gw-production.up.railway.app', // API Gateway
+    'https://your-frontend.vercel.app',        // Frontend (replace with actual URL)
+    'http://localhost:3000'                    // Local development
+  ],
   credentials: true
 }));
 app.use(express.json());
