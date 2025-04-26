@@ -49,39 +49,17 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     signUp: async ({ name, email, password }) => {
-      try {
-        setLoading(true)
-        setError(null)
-        const result = await authService.signUp({ name, email, password })
-        if (result.user) setUser(result.user)
-        return { success: true, data: result.user }
-      } catch (error) {
-        setError(error.message)
-        return { success: false, error: error.message }
-      } finally {
-        setLoading(false)
-      }
+      setLoading(true)
+      setError('Sign up is not implemented.');
+      setLoading(false)
+      return { success: false, error: 'Sign up is not implemented.' };
     },
 
     signIn: async ({ email, password }) => {
-      try {
-        setLoading(true)
-        setError(null)
-        const result = await authService.login({ email, password });
-        if (result.success && result.token && result.user) {
-          localStorage.setItem('jwt', result.token);
-          setUser(result.user);
-          return { success: true, user: result.user };
-        } else {
-          throw new Error(result.message || 'Login failed');
-        }
-      } catch (error) {
-        console.error('Sign in error:', error)
-        setError(error.message)
-        return { success: false, error: error.message }
-      } finally {
-        setLoading(false)
-      }
+      setLoading(true)
+      setError('Sign in is not implemented.');
+      setLoading(false)
+      return { success: false, error: 'Sign in is not implemented.' };
     },
 
     signOut: async () => {
