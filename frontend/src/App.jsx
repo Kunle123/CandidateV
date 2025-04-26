@@ -16,7 +16,6 @@ import Profile from './pages/profile/Profile'
 import ProfilePage from './pages/profile/ProfilePage'
 import PreferencesPage from './pages/profile/PreferencesPage'
 import NotFound from './pages/NotFound'
-import APITest from './components/APITest'
 import Settings from './pages/settings/Settings'
 
 // CV Components
@@ -43,7 +42,6 @@ function App() {
                 {/* Public routes */}
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Home />} />
-                  <Route path="/api-test" element={<APITest />} />
                   <Route path="/shared-cv/:id" element={<SharedCVView />} />
                 </Route>
                 
